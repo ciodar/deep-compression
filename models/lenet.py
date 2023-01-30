@@ -7,12 +7,14 @@ class LeNet300(nn.Module):
     def __init__(self, num_classes):
         super().__init__()
         self.fc1 = nn.Linear(28*28, 300)
-        self.fc2 = nn.Linear(300, num_classes)
+        self.fc2 = nn.Linear(300, 100)
+        self.fc3 = nn.Linear(100, num_classes)
 
     def forward(self, x):
         out = torch.flatten(x, 1)
         out = F.relu(self.fc1(out))
         out = F.relu(self.fc2(out))
+        out = self.fc3(out)
         return out
 
 

@@ -1,2 +1,4 @@
 /data/
 /checkpoints/
+# tensorboard runs
+/runs/
