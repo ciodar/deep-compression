@@ -1,11 +1,10 @@
 import time
 import torch
 from torch.utils.tensorboard import SummaryWriter
-
-
+from utils import plot_classes_preds
 
 def training_loop(epochs, model, optimizer, device, train_loader, valid_loader, loss_fn, logging_interval=100,
-                  scheduler=None, best_model_save_path=None, tb_writer=None):
+                  scheduler=None, best_model_save_path=None, writer=None):
     start_time = time.time()
     minibatch_loss_list, train_acc_list, valid_acc_list = [], [], []
     best_valid_acc, best_epoch = -float('inf'), 0
@@ -31,11 +30,14 @@ def training_loop(epochs, model, optimizer, device, train_loader, valid_loader, 
             if not i_batch % logging_interval:
                 print('***Epoch: %03d/%03d | Batch:%04d/%04d | Loss: %.3f' % (
                     epoch + 1, epochs, i_batch, len(train_loader), loss.item()))
-                if tb_writer:
+                if writer:
                     # ...log the running loss
-                    tb_writer.add_scalar('training loss',
-                                         running_loss / logging_interval,
-                                         epoch * len(train_loader) + i_batch)
+                    writer.add_scalar('Running Loss/train',
+                                      running_loss / logging_interval,
+                                      global_step=epoch * len(train_loader) + i_batch)
+                    writer.add_figure('predictions vs. actuals',
+                                      plot_classes_preds(model, inputs[:4], labels[:4],[0,1,2,3,4,5,6,7,8,9]),
+                                      global_step=epoch * len(train_loader) + i_batch)
                 running_loss = 0.0
                 # ...log a Matplotlib Figure showing the model's predictions on a random mini-batch
                 # tb_writer.add_figure('predictions vs. actuals',
@@ -66,34 +68,48 @@ def training_loop(epochs, model, optimizer, device, train_loader, valid_loader, 
 
         if scheduler is not None:
             scheduler.step()
+        if writer:
+            writer.add_scalar('Loss/train', train_loss, epoch)
+            writer.add_scalar('Loss/test', valid_loss, epoch)
+            writer.add_scalar('Accuracy/train', train_acc, epoch)
+            writer.add_scalar('Accuracy/test', valid_acc, epoch)
 
     print('Total Training Time: %.2f min' % ((time.time() - start_time) / 60))
     return minibatch_loss_list, train_acc_list, valid_acc_list
 
 
-def evaluate(model, data_loader, device, loss_fn):
+def evaluate(model, data_loader, device, loss_fn, topk=(1,)):
     model.eval()
     with torch.no_grad():
-        correct_pred, num_examples = 0, 0
+        topk_correct, num_examples = torch.zeros(len(topk)), 0
         curr_loss = 0.
-        for i, (inputs, labels) in enumerate(data_loader):
+        for inputs, labels in data_loader:
             inputs = inputs.to(device)
             labels = labels.to(device)
 
             outputs = model(inputs)
+
+            # calculate topk predictions
+            for i, k in enumerate(topk):
+                _, predicted = torch.topk(outputs, k, 1)
+                # update running loss and correct predictions count
+                topk_correct[i] += torch.eq(labels[:, None].expand_as(predicted), predicted).any(dim=1).sum().item()
+
             # calculate loss
             loss = loss_fn(outputs, labels, reduction='sum')
-            # calculate predictions
-            _, predicted = torch.max(outputs, 1)
-            # update running loss and correct predictions count
-            num_examples += labels.size(0)
             curr_loss += loss
-            correct_pred += (predicted == labels).sum()
+            num_examples += labels.size(0)
 
-    curr_acc = correct_pred.float() / num_examples * 100
+    topk_acc = topk_correct / num_examples * 100
+    if len(topk_acc == 1):
+        topk_acc = topk_acc.item()
+    else:
+        topk_acc = topk_acc.numpy().tolist()
+
     curr_loss = curr_loss / num_examples
 
-    return curr_acc.item(), curr_loss.item()
+    return topk_acc, curr_loss.item()
+
 
 class MyMultiStepLR(object):
     def __init__(self, lr_dict):
