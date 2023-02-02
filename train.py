@@ -1,7 +1,7 @@
 import time
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from utils import plot_classes_preds
+from utils import plot_classes_preds,weight_histograms
 
 def training_loop(epochs, model, optimizer, device, train_loader, valid_loader, loss_fn, logging_interval=100,
                   scheduler=None, best_model_save_path=None, writer=None):
@@ -38,6 +38,7 @@ def training_loop(epochs, model, optimizer, device, train_loader, valid_loader, 
                     writer.add_figure('predictions vs. actuals',
                                       plot_classes_preds(model, inputs[:4], labels[:4],[0,1,2,3,4,5,6,7,8,9]),
                                       global_step=epoch * len(train_loader) + i_batch)
+                    weight_histograms(writer,epoch*len(train_loader)+i_batch,model)
                 running_loss = 0.0
                 # ...log a Matplotlib Figure showing the model's predictions on a random mini-batch
                 # tb_writer.add_figure('predictions vs. actuals',
