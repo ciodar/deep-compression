@@ -11,7 +11,7 @@ Models:
 """
 
 
-import time
+import time, os
 import argparse
 import datetime
 
@@ -25,6 +25,9 @@ from dataset import get_mnist_loader
 from utils import plot_classes_preds, weight_histograms, set_all_seeds
 from models.lenet import LeNet5,LeNet300
 
+
+CHECKPOINT_DIR = os.path.dirname(os.path.abspath(__file__)) + '/checkpoints'
+RUNS_DIR = os.path.dirname(os.path.abspath(__file__)) + '/runs'
 
 def training_loop(epochs, model, optimizer, device, train_loader, valid_loader, loss_fn, logging_interval=100,
                   scheduler=None, checkpoint_path=None, writer=None):
@@ -164,10 +167,10 @@ def main(args):
             [transforms.ToTensor(),
              transforms.Normalize((0.5), (0.5))])
         classes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-        train_loader,test_loader = get_mnist_loader(transform,args.batch_size)
+        train_loader,test_loader = get_mnist_loader(args.batch_size,resize=args.model=='lenet- 5')
         
     elif dataset == 'cifar':
-        train_loader,test_loader = get_cifar_loader(transform,args.batch_size)
+        train_loader,test_loader = get_cifar_loader(args.batch_size)
 
     if args.model == 'lenet-300':
         model = LeNet300(10)
