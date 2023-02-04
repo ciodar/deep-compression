@@ -83,17 +83,20 @@ def weight_histograms_conv2d(writer, step, weights, name):
     num_kernels = weights_shape[0]
     for k in range(num_kernels):
         flattened_weights = weights[k].flatten()
-        flattened_weights = flattened_weights[flattened_weights!=0]
         tag = f"{name}/kernel_{k}"
-        writer.add_histogram(tag, flattened_weights, global_step=step, bins='tensorflow')
+        if (flattened_weights != 0).any().item():
+            writer.add_histogram(tag, flattened_weights[flattened_weights != 0], global_step=step, bins='tensorflow')
+        tag = f"compression/{name}/kernel_{k}"
+        writer.add_scalar(tag,len(flattened_weights)/len(flattened_weights[flattened_weights != 0]))
 
 
 
 def weight_histograms_linear(writer, step, weights, name):
     flattened_weights = weights.flatten()
-    flattened_weights = flattened_weights[flattened_weights != 0]
     tag = name
-    writer.add_histogram(tag, flattened_weights, global_step=step, bins='tensorflow')
+    writer.add_histogram(tag, flattened_weights[flattened_weights != 0], global_step=step, bins='tensorflow')
+    tag = f"compression/{name}"
+    writer.add_scalar(tag, len(flattened_weights) / len(flattened_weights[flattened_weights != 0]))
     # print('layer %s | std: %.3f | sparsity: %.3f%%' % (
     #    name, torch.std(flattened_weights), (flattened_weights == 0.).sum() / len(flattened_weights) * 100))
 
