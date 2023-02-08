@@ -10,7 +10,7 @@ import torch
 DATA_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
 
 
-def get_mnist_loader(batch_size, num_workers=2, val_fraction=None, resize=False):
+def get_mnist_loader(batch_size, num_workers=2, val_split=None, resize=False):
     # Load datasets
 
     trainset = torchvision.datasets.MNIST(root=DATA_DIR, train=True,
@@ -40,10 +40,16 @@ def get_mnist_loader(batch_size, num_workers=2, val_fraction=None, resize=False)
 
     # print((len(trainset.data) + len(testset.data)))
 
-    if val_fraction is not None:
-        num = int(val_fraction * (len(trainset.data) + len(testset.data)))
-        train_indices = torch.arange(0, 60000 - num)
-        valid_indices = torch.arange(60000 - num, 60000)
+    test_loader = DataLoader(testset, batch_size=batch_size,
+                             shuffle=False, num_workers=num_workers)
+
+    if val_split is not None:
+
+        train_length = len(trainset.data)
+
+        num = int(val_split * train_length)
+        train_indices = torch.arange(0, train_length - num)
+        valid_indices = torch.arange(train_length - num, train_length)
 
         train_sampler = SubsetRandomSampler(train_indices)
         valid_sampler = SubsetRandomSampler(valid_indices)
@@ -58,18 +64,12 @@ def get_mnist_loader(batch_size, num_workers=2, val_fraction=None, resize=False)
                                   num_workers=num_workers,
                                   drop_last=True,
                                   sampler=train_sampler)
-
-    train_loader = DataLoader(trainset, batch_size=batch_size,
-                                              shuffle=True, num_workers=num_workers)
-
-    test_loader = DataLoader(testset, batch_size=batch_size,
-                                             shuffle=False, num_workers=num_workers)
-
-
-    if val_fraction is None:
-        return train_loader, test_loader
     else:
-        return train_loader,valid_loader,test_loader
+        train_loader = DataLoader(trainset, batch_size=batch_size,
+                                                  shuffle=True, num_workers=num_workers)
+        return train_loader, test_loader
+
+    return train_loader,valid_loader,test_loader
 
 
 def get_cifar100_loader(batch_size, num_workers=2, val_fraction=None):
