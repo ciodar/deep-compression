@@ -63,18 +63,25 @@ def predict_with_probs(model, images):
     return predictions, [F.softmax(el, dim=0)[i].item() for i, el in zip(predictions, output)]
 
 
-def plot_classes_preds(model, images, labels, classes):
+def plot_classes_preds(model, images, labels, classes=None):
     preds, probs = predict_with_probs(model, images)
     # plot the images in the batch, along with predicted and true labels
     fig = plt.figure()
     for idx in np.arange(4):
         ax = fig.add_subplot(1, 4, idx + 1, xticks=[], yticks=[])
         imshow(images[idx].cpu().detach())
-        ax.set_title("{0}, {1:.1f}%\n(label: {2})".format(
-            classes[preds[idx]],
-            probs[idx] * 100.0,
-            classes[labels[idx]]),
-            color=("green" if preds[idx] == labels[idx].item() else "red"))
+        if classes:
+            ax.set_title("{0}, {1:.1f}%\n(label: {2})".format(
+                classes[preds[idx]],
+                probs[idx] * 100.0,
+                classes[labels[idx]]),
+                color=("green" if preds[idx] == labels[idx].item() else "red"))
+        else:
+            ax.set_title("{0}, {1:.1f}%\n(label: {2})".format(
+                preds[idx],
+                probs[idx] * 100.0,
+                labels[idx]),
+                color=("green" if preds[idx] == labels[idx].item() else "red"))
     return fig
 
 
@@ -86,8 +93,8 @@ def weight_histograms_conv2d(writer, step, weights, name):
         tag = f"{name}/kernel_{k}"
         if (flattened_weights != 0).any().item():
             writer.add_histogram(tag, flattened_weights[flattened_weights != 0], global_step=step, bins='tensorflow')
-        tag = f"compression/{name}/kernel_{k}"
-        writer.add_scalar(tag,len(flattened_weights)/len(flattened_weights[flattened_weights != 0]))
+            tag = f"compression/{name}/kernel_{k}"
+            writer.add_scalar(tag,len(flattened_weights)/len(flattened_weights[flattened_weights != 0]))
 
 
 
@@ -112,3 +119,20 @@ def weight_histograms(writer, step, model):
         elif isinstance(module, nn.Linear):
             weights = module.weight
             weight_histograms_linear(writer, step, weights, name)
+
+
+def plot_weight_histograms(model):
+    for name, module in model.named_modules():
+        if isinstance(module,nn.Linear):
+            weight = module.weight.data.cpu()
+            plt.hist(weight[weight != 0],bins=30,density=True)
+            plt.title('layer: %s' % name)
+            plt.show()
+        elif isinstance(module,nn.Conv2d):
+            weight = module.weight.data.cpu()
+            for k in range(weight.shape[0]):
+                flattened_weights = weight[k].flatten()
+                tag = "layer: %s/kernel_%d" % (name,k)
+                plt.hist(flattened_weights[flattened_weights != 0],bins=30,density=True)
+                plt.title(tag)
+                plt.show()
