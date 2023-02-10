@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
@@ -10,6 +12,7 @@ from sklearn.cluster import KMeans
 # Quantization base class inspired on torch.nn.utils.BasePruningMethod
 class BaseQuantizationMethod:
     _tensor_name: str
+    _shape: Tuple
 
     def __init__(self):
         pass
@@ -33,13 +36,19 @@ class BaseQuantizationMethod:
         indices = getattr(module, self._tensor_name + '_indices')
         centers = getattr(module, self._tensor_name + '_centers')
         weights = F.embedding(indices, centers).squeeze()
-        return weights
+        if hasattr(module, self._tensor_name + '_mask'):
+            mask = getattr(module, self._tensor_name + '_mask')
+            mat = mask.clone()
+            mat[mat == 1] = weights
+        else:
+            mat = weights.view(self._shape)
+        return mat
 
     @classmethod
     def apply(cls, module, name, bits, *args, **kwargs):
         orig = getattr(module, name).data.cpu()
         shape = orig.shape
-        mat = orig.view(-1)
+        mat = csr_matrix(orig) if shape[0] < shape[1] else csc_matrix(orig)
         min_ = min(mat.data)
         max_ = max(mat.data)
         space = np.linspace(min_, max_, num=2 ** bits)
@@ -50,13 +59,16 @@ class BaseQuantizationMethod:
         method = cls(*args, **kwargs)
         # Have the quantization method remember what tensor it's been applied to
         method._tensor_name = name
+        method._shape = orig.shape
 
-        centers, indices = kmeans.cluster_centers_, kmeans.labels_.reshape(shape)
+        centers, indices = kmeans.cluster_centers_, kmeans.labels_
         centers = torch.nn.Parameter(torch.from_numpy(centers).float())
         indices = torch.from_numpy(indices)
+        # If no reparameterization was done before (pruning), delete parameter
+        if name in module._parameters:
+            del module._parameters[name]
         # reparametrize by saving centroids and indices to `module[name + '_centers']`
         # and `module[name + '_indices']`...
-        del module._parameters[name]
         module.register_parameter(name + "_centers", centers)
         module.register_buffer(name + "_indices", indices)
         # ... and the new quantized tensor to `module[name]`
@@ -69,4 +81,3 @@ class BaseQuantizationMethod:
 def cluster_quantize(module, name, bits):
     BaseQuantizationMethod.apply(module, name, bits)
     return module
-    # do something
