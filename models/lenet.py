@@ -4,12 +4,12 @@ import torch.nn.functional as F
 
 
 class LeNet300(nn.Module):
-    def __init__(self, num_classes, activation=F.relu, p=0):
+    def __init__(self, num_classes, activation=F.relu, dropout_rate=0):
         super().__init__()
         self.fc1 = nn.Linear(28*28, 300)
         self.fc2 = nn.Linear(300, 100)
         self.fc3 = nn.Linear(100, num_classes)
-        self.dropout = nn.Dropout(p)
+        self.dropout = nn.Dropout(dropout_rate)
         # activation function for hidden layers
         self.activation = activation
 
@@ -26,7 +26,7 @@ class LeNet300(nn.Module):
 
 # Defining the convolutional neural network
 class LeNet5(nn.Module):
-    def __init__(self, num_classes, activation=F.relu,p=0):
+    def __init__(self, num_classes, activation=F.relu,dropout_rate=0):
         super().__init__()
         self.layer1 = nn.Sequential(
             nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
@@ -41,7 +41,7 @@ class LeNet5(nn.Module):
         self.fc = nn.Linear(400, 120)
         self.fc1 = nn.Linear(120, 84)
         self.fc2 = nn.Linear(84, num_classes)
-        self.dropout = nn.Dropout(p)
+        self.dropout = nn.Dropout(dropout_rate)
         # activation function for hidden layers
         self.activation = activation
 
