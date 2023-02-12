@@ -48,13 +48,17 @@ class BaseQuantizationMethod:
     def apply(cls, module, name, bits, *args, **kwargs):
         orig = getattr(module, name).data.cpu()
         shape = orig.shape
-        mat = csr_matrix(orig) if shape[0] < shape[1] else csc_matrix(orig)
-        min_ = min(mat.data)
-        max_ = max(mat.data)
+        if len(shape) <=2:
+            mat = csr_matrix(orig) if shape[0] < shape[1] else csc_matrix(orig)
+            mat = mat.data
+        else:
+            mat = orig.numpy(force=True)
+        min_ = mat.min()
+        max_ = mat.max()
         space = np.linspace(min_, max_, num=2 ** bits)
         kmeans = KMeans(n_clusters=len(space), init=space.reshape(-1, 1), n_init=1,
                         algorithm="full")
-        kmeans.fit(mat.data.reshape(-1, 1))
+        kmeans.fit(mat.reshape(-1,1))
 
         method = cls(*args, **kwargs)
         # Have the quantization method remember what tensor it's been applied to
