@@ -66,7 +66,6 @@ def training_loop(epochs, model, optimizer, device, train_loader, valid_loader, 
         model.train()
         train_loss, train_acc1, train_acc5 = train_epoch(model, optimizer, device, train_loader, loss_fn,
                                                          logging_interval)
-
         if writer:
             writer.add_scalar('Loss/train', train_loss, epoch)
             writer.add_scalar('Acc@1/train', train_acc1, epoch)
@@ -107,7 +106,7 @@ def training_loop(epochs, model, optimizer, device, train_loader, valid_loader, 
             scheduler.step()
 
     print('Total Training Time: %.2f min' % ((time.time() - start_time) / 60))
-    return best_valid_acc
+    return train_acc1, best_valid_acc
 
 
 def train_epoch(model, optimizer, device, loader, loss_fn, logging_interval=100):
