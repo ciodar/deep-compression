@@ -22,46 +22,57 @@ class ThresholdPruning(prune.BasePruningMethod):
     def compute_mask(self, tensor, default_mask):
         return torch.abs(tensor) > self.threshold
 
-#TODO: alternatively prune linear and conv2d
-#TODO: iteratively prune and train
 
-def threshold_prune(model, s):
-    tot_weights = 0
-    retained_weights = 0
-    for name, module in model.named_modules():
-        if isinstance(module, torch.nn.Linear):
-            weight = module.weight.data.cpu()
-            threshold = torch.std(weight).item() * s
-            print('*** Pruning with threshold : %.3f for layer %s' % (threshold, name))
-            # calculate pruned weights
-            prune.global_unstructured([(module, "weight")], pruning_method=ThresholdPruning, threshold=threshold)
-            _, weight_mask = list(module.named_buffers('weight_mask'))[0]
-            if weight_mask.flatten().any().item():
-                print('*** Compression factor for %s: %.3f' % (
-                    name, int(len(weight_mask.flatten()) / weight_mask.flatten().sum())))
+# TODO: alternatively prune linear and conv2d
+# TODO: iteratively prune and train
 
-                tot_weights += len(weight_mask.flatten())
-                retained_weights += weight_mask.flatten().sum()
-    compression = math.inf if retained_weights == 0 else tot_weights / retained_weights
-    print('Total compression factor: %.1f | %% of retained weights: %.1f ' % (compression, 1. / compression * 100.))
-    return compression
+def threshold_prune_module(module, param_name, s, dim=None):
+    tensor = getattr(module, param_name).data.cpu()
+    shape = tensor.shape
+    threshold = torch.std(tensor).item() * s
+    print('*** Pruning with amount : %.3f for layer %s' % (
+        threshold, param_name))
+    if dim is None:
+        pruned_module = prune.l1_unstructured(module, name='weight', amount=threshold)
+    else:
+        pruned_module = prune.ln_structured(module,param_name,amount=threshold,n=1,dim=dim)
+    # calculate pruned weights
+    pruned_weights = torch.sum(pruned_module.weight_mask.flatten() == 0).item()
+    tot_weights = len(pruned_module.weight_mask.flatten())
+    print('*** Pruned %d weights (%.3f %%)' % (
+        pruned_weights, pruned_weights / tot_weights * 100,))
+    return pruned_weights,tot_weights
 
 
-def perc_prune(model, p):
-    for name, module in model.named_modules():
-        if isinstance(module, nn.Linear):
-            prune.l1_unstructured(module, name="weight", amount=p)
-            print('%s - %% of retained weights: %.1f ' % (name, sum(torch.nn.utils.parameters_to_vector(
-                model.buffers()) != 0) / len(torch.nn.utils.parameters_to_vector(model.buffers()))))
-        if isinstance(module, nn.Conv2d):
-            prune.ln_structured(module, name="weight", amount=p, n=1, dim=1)
-            print('%s - %% of retained weights: %.1f ' % (name, sum(torch.nn.utils.parameters_to_vector(
-                model.buffers()) != 0) / len(torch.nn.utils.parameters_to_vector(model.buffers()))))
-    total_weights = len(torch.nn.utils.parameters_to_vector(model.buffers()))
-    retained_weights = sum(torch.nn.utils.parameters_to_vector(model.buffers()) != 0)
-    compression = total_weights / retained_weights
-    print('Total retained weights: %d | Total compression factor: %.1fx | %% of retained weights: %.1f ' % (retained_weights,compression, 1. / compression * 100.))
-    return compression
+def sparsity_prune_module(module, param_name, sparsity, dim=None):
+    tensor = getattr(module, param_name).data.cpu()
+    shape = tensor.shape
+    print('*** Pruning %d%% of weights for layer %s' % (int(sparsity*100), param_name))
+    if dim is None:
+        pruned_module = prune.l1_unstructured(module, name='weight', amount=sparsity)
+    else:
+        pruned_module = prune.ln_structured(module, param_name, amount=sparsity, n=1, dim=dim)
+    # calculate pruned weights
+    pruned_weights = torch.sum(pruned_module.weight_mask.flatten() == 0).item()
+    tot_weights = len(pruned_module.weight_mask.flatten())
+    print('*** Pruned %d weights (%.3f %%)' % (
+        pruned_weights, pruned_weights / tot_weights * 100,))
+    return pruned_weights, tot_weights
+
+
+# def pruning(model, param, p, dim=None, cls=None,):
+#     if cls is None:
+#         cls = [torch.nn.Linear, torch.nn.Conv2d]
+#     tot_pruned = 0
+#     tot = 0
+#     for name, module in model.named_modules():
+#         if any(isinstance(module, x) for x in cls):
+#             pruned, weights = sparsity_prune_module(module,param, p, dim=dim)
+#             tot_pruned += pruned
+#             tot += weights
+#     print('Total retained weights: %d | Total compression factor: %.1fx | %% of retained weights: %.1f ' % (
+#         tot - tot_pruned, tot/tot_pruned if tot_pruned > 1 else 1, tot_pruned/tot * 100.))
+#     return tot/tot_pruned if tot_pruned > 1 else 1
 
 
 def apply_pruning(model):
@@ -84,6 +95,7 @@ def save_sparse_weights(model, save_path):
             weight_dict['%s.weight' % name] = sparse_weight
             weight_dict['%s.bias' % name] = bias
     torch.save(weight_dict, save_path)
+
 
 def load_sparse_weights(load_path):
     dict = torch.load(load_path)
