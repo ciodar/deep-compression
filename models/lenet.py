@@ -26,19 +26,24 @@ class LeNet300(nn.Module):
 
 # Defining the convolutional neural network
 class LeNet5(nn.Module):
-    def __init__(self, num_classes, activation=F.relu,dropout_rate=0):
+    def __init__(self, num_classes, grayscale=False, activation=F.relu,dropout_rate=0):
         super().__init__()
+        self.grayscale = grayscale
+        if self.grayscale:
+            in_channels = 1
+        else:
+            in_channels = 3
         self.layer1 = nn.Sequential(
-            nn.Conv2d(1, 6, kernel_size=5, stride=1, padding=0),
+            nn.Conv2d(in_channels, 6*in_channels, kernel_size=5, stride=1, padding=0),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         self.layer2 = nn.Sequential(
-            nn.Conv2d(6, 16, kernel_size=5, stride=1, padding=0),
+            nn.Conv2d(6*in_channels, 16*in_channels, kernel_size=5, stride=1, padding=0),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
-        self.fc = nn.Linear(400, 120)
-        self.fc1 = nn.Linear(120, 84)
-        self.fc2 = nn.Linear(84, num_classes)
+        self.fc = nn.Linear(16*5*5*in_channels, 120*in_channels)
+        self.fc1 = nn.Linear(120*in_channels, 84*in_channels)
+        self.fc2 = nn.Linear(84*in_channels, num_classes)
         self.dropout = nn.Dropout(dropout_rate)
         # activation function for hidden layers
         self.activation = activation
