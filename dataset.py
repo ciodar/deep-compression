@@ -18,7 +18,7 @@ class INDataset(Dataset):
         self.transform = transform
 
     def __getitem__(self, i):
-        image_path = os.path.join(os.pardir,self.data['image_names'][i])
+        image_path = os.path.join(os.pardir, self.data['image_names'][i])
         image = Image.open(image_path).convert('RGB')
         image = self.transform(image)
         label = self.data['image_labels'][i]
@@ -87,29 +87,58 @@ def get_mnist_loader(batch_size, num_workers=2, val_split=None, resize=False):
     return train_loader, valid_loader, test_loader
 
 
-def get_cifar100_loader(batch_size, num_workers=2, val_fraction=None):
+def get_cifar100_loader(batch_size, num_workers=2, val_split=None):
     # Load datasets
     train_set = torchvision.datasets.CIFAR100(root=DATA_DIR, train=True,
                                               download=True)
-    train_loader = torch.utils.data.DataLoader(train_set, batch_size=batch_size,
-                                               shuffle=True, num_workers=num_workers)
 
-    mean = train_set.data.float().mean() / 255
-    std = train_set.data.float().std() / 255
+    # print(train_set.data.shape)
 
-    # print("Train dataset mean: %.3f, std: %.3f" % (mean, std))
+    mean = train_set.data.mean(axis=(0,1,2)) / 255
+    std = train_set.data.std(axis=(0,1,2)) / 255
+
+    print("Train dataset mean: %s, std: %s" % (mean, std))
 
     transform = transforms.Compose(
         [transforms.ToTensor(),
          transforms.Normalize(mean, std)])
     train_set.transform = transform
 
+    valid_set = torchvision.datasets.CIFAR100(root=DATA_DIR, train=True,
+                                              download=True, transform=transform)
+
     test_set = torchvision.datasets.CIFAR100(root=DATA_DIR, train=False,
                                              download=True, transform=transform)
-    test_loader = torch.utils.data.DataLoader(test_set, batch_size=batch_size,
-                                              shuffle=False, num_workers=num_workers)
 
-    return train_loader, test_loader
+    test_loader = DataLoader(train_set, batch_size=batch_size,
+                             shuffle=False, num_workers=num_workers)
+    if val_split is not None:
+
+        train_length = len(train_set.data)
+
+        num = int(val_split * train_length)
+        train_indices = torch.arange(0, train_length - num)
+        valid_indices = torch.arange(train_length - num, train_length)
+
+        train_sampler = SubsetRandomSampler(train_indices)
+        valid_sampler = SubsetRandomSampler(valid_indices)
+
+        valid_loader = DataLoader(dataset=valid_set,
+                                  batch_size=batch_size,
+                                  num_workers=num_workers,
+                                  sampler=valid_sampler)
+
+        train_loader = DataLoader(dataset=train_set,
+                                  batch_size=batch_size,
+                                  num_workers=num_workers,
+                                  drop_last=True,
+                                  sampler=train_sampler)
+    else:
+        train_loader = DataLoader(train_set, batch_size=batch_size,
+                                  shuffle=True, num_workers=num_workers)
+        return train_loader, test_loader
+
+    return train_loader, valid_loader, test_loader
 
 
 # def get_imagenet_loader(data_path,transform):
