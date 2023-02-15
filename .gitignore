@@ -1,4 +1,3 @@
 /data/
-/checkpoints/
-# tensorboard runs
+# project runs output and checkpoints
 /runs/
