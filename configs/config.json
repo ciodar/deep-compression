@@ -43,5 +43,18 @@
         "monitor": "min val_loss",
         "early_stop": 10,
         "tensorboard": true
+    },
+    "prune": {
+        "type": "PruneScheduler",
+        "args": {
+            "levels": {
+                "fc1.weight": 0.92,
+                "fc2.weight": 0.91,
+                "fc3.weight": 0.74
+            }
+        }
+    },
+    "quantize": {
+
     }
 }

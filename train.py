@@ -69,7 +69,7 @@ if __name__ == "__main__":
     args = argparse.ArgumentParser(description=__doc__,
                                    formatter_class=lambda prog:
                                    argparse.ArgumentDefaultsHelpFormatter(prog, max_help_position=52, width=90))
-    args.add_argument('-c', '--config', default='configs/config.json', type=str,
+    args.add_argument('-c', '--config', default=None, type=str,
                       help='config file path (default: None)')
     args.add_argument('-r', '--resume', default=None, type=str,
                       help='path to latest checkpoint (default: None)')
