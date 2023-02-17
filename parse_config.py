@@ -77,6 +77,32 @@ class ConfigParser:
         modification = {opt.target: getattr(args, _get_opt_name(opt.flags)) for opt in options}
         return cls(config, resume, modification)
 
+    @classmethod
+    def from_dict(cls, dict, options=''):
+        """
+        Initialize this class from some cli arguments. Used in train, test.
+        """
+
+        if 'device' in dict:
+            os.environ["CUDA_VISIBLE_DEVICES"] = dict['device']
+        if 'resume' in dict:
+            resume = Path(dict['resume'])
+            cfg_fname = resume.parent / 'config.json'
+        else:
+            msg_no_cfg = "Configuration file need to be specified. Add '-c config.json', for example."
+            assert 'config' in dict , msg_no_cfg
+            resume = None
+            cfg_fname = Path(dict['config'])
+
+        config = read_json(cfg_fname)
+        if 'config' in dict and resume:
+            # update new config for fine-tuning
+            config.update(read_json(dict['config']))
+
+        # parse custom cli options into dictionary
+        modification = {}
+        return cls(config, resume, modification)
+
     def init_obj(self, name, module, *args, **kwargs):
         """
         Finds a function handle with the name given as 'type' in config, and returns the
