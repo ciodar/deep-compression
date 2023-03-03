@@ -9,9 +9,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import matplotlib.pyplot as plt
-from torch.nn.utils import prune
-
-import quantization as quantize
 
 
 class MetricTracker:

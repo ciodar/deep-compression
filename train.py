@@ -31,7 +31,7 @@ SEED = 42
 set_all_seeds(SEED)
 
 
-def train(config):
+def main(config):
     logger = config.get_logger('train')
 
     # setup data_loader instances
@@ -84,4 +84,4 @@ if __name__ == "__main__":
         CustomArgs(['--bs', '--batch_size'], type=int, target='data_loader;args;batch_size')
     ]
     config = ConfigParser.from_args(args, options)
-    train(config)
+    main(config)

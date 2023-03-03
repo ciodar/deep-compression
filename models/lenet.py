@@ -45,7 +45,7 @@ class LeNet5(nn.Module):
     def forward(self, x):
         out = self.activation(self.conv1(x))
         out = F.max_pool2d(out, kernel_size=2, stride=2)
-        out = self.activation(self.layer2(out))
+        out = self.activation(self.conv2(out))
         out = F.max_pool2d(out, kernel_size=2, stride=2)
         out = out.reshape(out.size(0), -1)
         out = self.activation(self.fc(out))
