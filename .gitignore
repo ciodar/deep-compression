@@ -1,3 +1,8 @@
 /data/
 # project runs output and checkpoints
 /runs/
+
+# editor, os cache directory
+.vscode/
+/.idea/
+__MACOSX/
