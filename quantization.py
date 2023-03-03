@@ -1,6 +1,13 @@
+import argparse
+import collections
+import operator
 import os
+import sys
 from abc import ABC, abstractmethod
 from typing import Tuple
+
+from parse_config import ConfigParser
+from trainer.trainer import Trainer
 
 # suppress Kmeans warning of memory leak in Windows
 os.environ['OMP_NUM_THREADS'] = "1"
@@ -13,6 +20,10 @@ import torch.nn.utils.prune as prune
 import numpy as np
 from scipy.sparse import csc_matrix, csr_matrix
 from sklearn.cluster import KMeans
+
+import data as module_data
+import models as module_arch
+import evaluation as module_metric
 
 
 # Quantization base class inspired on torch.nn.utils.BasePruningMethod
@@ -41,16 +52,19 @@ class BaseQuantizationMethod(ABC):
         )  # this gets set in apply()
         indices = getattr(module, self._tensor_name + '_indices')
         centers = getattr(module, self._tensor_name + '_centers')
-        weights = F.embedding(indices, centers)
+        weights = F.embedding(indices, centers).squeeze()
         ## debugging
         # weights.register_hook(print)
         if hasattr(module, self._tensor_name + '_mask'):
             mask = getattr(module, self._tensor_name + '_mask')
             mat = mask.clone()
-            mat[mat == 1] = weights
+            if mat.dim() == 2:
+                mat[mat == 1] = weights
+            else:
+                mat = weights
         else:
-            mat = weights.view(self._shape)
-        return mat
+            mat = weights
+        return mat.view(self._shape)
 
     @abstractmethod
     def initialize_clusters(self, mat, n_points):
@@ -58,13 +72,14 @@ class BaseQuantizationMethod(ABC):
 
     @classmethod
     def apply(cls, module, name, bits, *args, **kwargs):
-        param = getattr(module, name).data.cpu()
+        param = getattr(module, name).detach()
+        device = param.device
         shape = tuple(param.shape)
         if len(shape) <= 2:
-            mat = csr_matrix(param) if shape[0] < shape[1] else csc_matrix(param)
+            mat = csr_matrix(param.cpu()) if shape[0] < shape[1] else csc_matrix(param.cpu())
             mat = mat.data
         else:
-            mat = param.numpy(force=True)
+            mat = param.cpu().numpy(force=True)
 
         space = cls(*args, **kwargs).initialize_clusters(mat, 2 ** bits)
 
@@ -78,8 +93,8 @@ class BaseQuantizationMethod(ABC):
         method._shape = param.shape
 
         centers, indices = kmeans.cluster_centers_, kmeans.labels_
-        centers = torch.nn.Parameter(torch.from_numpy(centers).float())
-        indices = torch.from_numpy(indices)
+        centers = torch.nn.Parameter(torch.from_numpy(centers).float().to(device))
+        indices = torch.from_numpy(indices).to(device)
         # If no reparameterization was done before (pruning), delete parameter
         if name in module._parameters:
             del module._parameters[name]
@@ -99,7 +114,7 @@ class LinearQuantizationMethod(BaseQuantizationMethod):
     def initialize_clusters(self, mat, n_points):
         min_ = mat.min()
         max_ = mat.max()
-        space = np.linspace(min_, max_, num=2 ** n_points)
+        space = np.linspace(min_, max_, num=n_points)
         return space
 
     @classmethod
@@ -127,14 +142,31 @@ class DensityQuantizationMethod(BaseQuantizationMethod):
         return super(DensityQuantizationMethod, cls).apply(module, name, bits)
 
 
-def linear_quantize(module, name, bits):
+def linear_quantization(module, name, bits):
     LinearQuantizationMethod.apply(module, name, bits)
     return module
 
 
-def forgy_quantize(module, name, bits):
+def forgy_quantization(module, name, bits):
     ForgyQuantizationMethod.apply(module, name, bits)
     return module
+
+
+def quantize_model(model, quantize_fn, levels, logger=None):
+    for p in model.parameters():
+        p.requires_grad = False
+    for param, bits in levels.items():
+        if logger is not None:
+            logger.info('Quantizing {} in {:d} bits'.format(param, bits))
+        # get param name separated from module
+        m, param = param.split('.')[0:-1], param.split('.')[-1]
+        module = operator.attrgetter('.'.join(m))(model)
+        quantize_fn(module, param, bits)
+        # calculate compression stats
+        # Always retrain all parameters (eg. bias) even if not pruned
+        for p in module.parameters():
+            p.requires_grad = True
+    return model
 
 
 def compression_rate(module, name, bits, weight_bits=32):
