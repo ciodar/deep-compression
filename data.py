@@ -97,8 +97,8 @@ class Cifar100DataLoader(BaseDataLoader):
         train_set = datasets.CIFAR100(root=DATA_DIR, train=True,
                                       download=True)
 
-        mean = train_set.data.float().mean() / 255  # 0.1307
-        std = train_set.data.float().std() / 255  # 0.3081
+        mean = train_set.data.mean() / 255
+        std = train_set.data.std() / 255
 
         transform = transforms.Compose([
             transforms.ToTensor(),
@@ -110,7 +110,7 @@ class Cifar100DataLoader(BaseDataLoader):
 
 
 # This code is modified from https://github.com/ashok-arjun/MLRC-2021-Few-Shot-Learning-And-Self-Supervision
-class INDataset(Dataset):
+class MINDataset(Dataset):
     def __init__(self, root, train, transform):
         meta_dir = pl.Path(root).joinpath('mini-in')
         if train:
@@ -132,14 +132,47 @@ class INDataset(Dataset):
         return len(self.data['image_names'])
 
 
+class ImagenetteDataLoader(BaseDataLoader):
+    def __init__(self, batch_size, data_dir=os.path.join(DATA_DIR, 'imagenette2'), shuffle=True, validation_split=0.0, num_workers=1,
+                 training=True):
+        traindir = os.path.join(data_dir, 'train')
+        testdir = os.path.join(data_dir, 'val')
+
+        print(os.path.abspath(traindir))
+
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
+        if training:
+            transform = transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                normalize,
+            ])
+        else:
+            transform = transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])
+
+        self.dataset = datasets.ImageFolder(
+            traindir if training else testdir,
+            transform
+        )
+
+        super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
+
 class ImagenetDataLoader(BaseDataLoader):
     # calculated dataset mean and variance for standardization
     def __init__(self, batch_size, data_dir=DATA_DIR, shuffle=True, validation_split=0.0, num_workers=1, training=True):
-        transform = transforms.Compose([transforms.Resize((64, 64)),
+        transform = transforms.Compose([transforms.Resize((224, 224)),
                                         # transforms.RandomCrop((64, 64)),
                                         transforms.ToTensor(),
                                         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
                                         ])
         self.data_dir = data_dir
-        self.dataset = INDataset(root=self.data_dir, train=training, download=True, transform=transform)
+        self.dataset = MINDataset(root=self.data_dir, train=training, transform=transform)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
