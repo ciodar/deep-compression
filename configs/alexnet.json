@@ -1,0 +1,77 @@
+{
+    "name": "Imagenette_AlexNet",
+    "n_gpu": 1,
+
+    "arch": {
+        "type": "AlexNet",
+        "args": {
+            "num_classes": 10
+        }
+    },
+    "data_loader": {
+        "type": "ImagenetteDataLoader",
+        "args":{
+            "data_dir": "data/imagenette2",
+            "batch_size": 128,
+            "shuffle": true,
+            "validation_split": 0.1,
+            "num_workers": 2
+        }
+    },
+    "optimizer": {
+        "type": "SGD",
+        "args":{
+            "lr": 1e-2,
+            "momentum": 0.9,
+            "weight_decay": 5e-4
+        }
+    },
+    "loss": "cross_entropy",
+    "metrics": ["accuracy","topk_accuracy"],
+    "lr_scheduler": {
+        "type": "ReduceLROnPlateau",
+        "args": {
+            "mode": "max",
+            "factor": 0.1
+        }
+    },
+    "trainer": {
+        "epochs": 50,
+        "save_dir": "runs/",
+        "save_period": 1,
+        "verbosity": 1,
+        "monitor": "max accuracy",
+        "early_stop": 5,
+        "tensorboard": true
+    },
+    "pruners": [
+        {
+            "type": "l1_unstructured",
+            "finetune_weights": true,
+            "levels": {
+                "conv1.weight": 0.26,
+                "conv2.weight": 0.62,
+                "conv3.weight": 0.65,
+                "conv4.weight": 0.63,
+                "conv5.weight": 0.63,
+                "fc6.weight": 0.91,
+                "fc7.weight": 0.91,
+                "fc8.weight": 0.75
+            }
+        }
+    ],
+    "quantizer": {
+        "type": "linear_quantization",
+        "finetune_weights": true,
+        "levels": {
+                 "conv1.weight": 8,
+                "conv2.weight": 8,
+                "conv3.weight": 8,
+                "conv4.weight": 8,
+                "conv5.weight": 8,
+                "fc6.weight": 5,
+                "fc7.weight": 5,
+                "fc8.weight": 5
+            }
+    }
+}

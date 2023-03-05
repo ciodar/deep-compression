@@ -6,3 +6,5 @@
 .vscode/
 /.idea/
 __MACOSX/
+
+config.json

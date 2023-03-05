@@ -1,0 +1,71 @@
+{
+    "name": "Mnist_LeNet300",
+    "n_gpu": 1,
+    "arch": {
+        "type": "LeNet5",
+        "args": {
+            "num_classes": 10,
+            "grayscale": true
+        }
+    },
+    "data_loader": {
+        "type": "MnistDataLoader",
+        "args": {
+            "data_dir": "data/",
+            "batch_size": 128,
+            "shuffle": true,
+            "validation_split": 0.1,
+            "num_workers": 2,
+            "resize": true
+        }
+    },
+    "optimizer": {
+        "type": "SGD",
+        "args":{
+            "lr": 1e-2,
+            "momentum": 0.9,
+            "weight_decay": 1e-6
+        }
+    },
+    "loss": "cross_entropy",
+    "metrics": [
+        "accuracy",
+        "topk_accuracy"
+    ],
+    "lr_scheduler": {
+        "type": "ReduceLROnPlateau",
+        "args": {
+            "mode": "max",
+            "factor": 0.1
+        }
+    },
+    "trainer": {
+        "epochs": 20,
+        "save_dir": "runs/",
+        "save_period": -1,
+        "verbosity": 1,
+        "monitor": "min val_loss",
+        "early_stop": 5,
+        "tensorboard": true
+    },
+    "pruners": [
+        {
+            "type": "l1_unstructured",
+            "finetune_weights": true,
+            "levels": {
+                "fc1.weight": 0.92,
+                "fc2.weight": 0.91,
+                "fc3.weight": 0.74
+            }
+        }
+    ],
+    "quantizer": {
+        "type": "linear_quantization",
+        "finetune_weights": true,
+        "levels": {
+            "fc1.weight": 6,
+            "fc2.weight": 6,
+            "fc3.weight": 6
+        }
+    }
+}
