@@ -66,7 +66,12 @@ class Trainer(BaseTrainer):
             log.update(**{'val_' + k: v for k, v in val_log.items()})
 
         if self.lr_scheduler is not None:
-            self.lr_scheduler.step()
+            if isinstance(self.lr_scheduler,torch.optim.lr_scheduler.ReduceLROnPlateau):
+                assert self.do_validation, "ReduceLROnPlateau needs validation. Please set do_validation=True."
+                self.lr_scheduler.step(val_log[self.mnt_metric[4:]])
+            else:
+                self.lr_scheduler.step()
+
         return log
 
     def _valid_epoch(self, epoch):
