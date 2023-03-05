@@ -33,7 +33,7 @@ def main(config):
     logger.info('Loading checkpoint: {} ...'.format(config.resume))
     checkpoint = torch.load(config.resume)
     state_dict = checkpoint['state_dict']
-    logger.info('Accuracy before compression: {:.2f}'.format(checkpoint['monitor_best']))
+    logger.info('Accuracy before compression: {:.3f}'.format(checkpoint['monitor_best']))
     if config['n_gpu'] > 1:
         model = torch.nn.DataParallel(model)
     model.load_state_dict(state_dict)
@@ -70,12 +70,14 @@ def main(config):
 
         if logger is not None:
             logger.info(
-                "Tested model after pruning - acc@1:{:.2f} | acc@5:{:.2f}".format(acc1, acc5))
+                "Tested model after pruning - acc@1:{:.3f} | acc@5:{:.3f}".format(acc1, acc5))
 
     quantizer = config['quantizer']
     quantize_fn = getattr(module_quantize, quantizer['type'])
 
     model = module_quantize.quantize_model(model, quantize_fn, quantizer['levels'], logger)
+
+
 
     # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
@@ -96,7 +98,7 @@ def main(config):
 
     if logger is not None:
         logger.info(
-            "Tested model after quantization - acc@1:{:.2f} | acc@5:{:.2f}".format(acc1, acc5))
+            "Tested model after quantization - acc@1:{:.3f} | acc@5:{:.3f}".format(acc1, acc5))
 
 
 if __name__ == '__main__':
