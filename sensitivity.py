@@ -5,6 +5,7 @@ import os
 from collections import OrderedDict
 from copy import deepcopy
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -19,9 +20,9 @@ import data as module_data
 import models as module_arch
 import evaluation as module_metric
 
-from pruning import prune_model
 from quantization import quantize_model
-import torch.nn.utils.prune as module_prune
+import pruning as module_prune
+from pruning import prune_model
 
 CHECKPOINT_DIR = os.path.dirname(os.path.abspath(__file__)) + '/checkpoints'
 RUNS_DIR = os.path.dirname(os.path.abspath(__file__)) + '/runs'
@@ -84,17 +85,19 @@ def sensitivity_analysis(trainer, sparsities, test_fn, train=True, logger=None):
                 levels = {param_name: sparsity}
 
                 fn = getattr(module_prune, pruner["type"])
-                test_fn(model_cpy, fn, levels, logger)
+                iterations = 5
+                for it in range(iterations):
+                    test_fn(model_cpy, fn, levels, logger)
 
-                # Test and record the performance of the pruned model
-                if train:
-                    trainer.train()
+                    # Test and record the performance of the pruned model
+                    if train:
+                        trainer.train()
                 _, acc1, acc5 = trainer._valid_epoch(-1).values()
                 if logger is not None:
                     logger.info(
-                        "Tested sensitivity of {} [{:.1f}% sparsity] | acc@1:{:.2f} | acc@5:{:.2f}"
+                        "Tested sensitivity of {} [ sparsity amount:{:.1f} ] | acc@1:{:.2f} | acc@5:{:.2f}"
                         .format(param_name,
-                                sparsity * 100,
+                                sparsity,
                                 acc1, acc5))
                 sensitivity[sparsity] = [acc1, acc5]
             sensitivities[param_name] = sensitivity
@@ -126,6 +129,9 @@ def main(config):
     optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
     lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
 
+    # avoid model reinitialization inside trainer
+    config.resume = None
+
     trainer = Trainer(model, criterion, metrics, optimizer,
                       config=config,
                       device=device,
@@ -133,10 +139,10 @@ def main(config):
                       valid_data_loader=valid_data_loader,
                       lr_scheduler=lr_scheduler)
 
-    levels = np.linspace(0, 0.99, 11)
+    levels = np.linspace(.1, 1, 9)
 
     sensitivities = sensitivity_analysis(trainer, levels, prune_model, train=True, logger=logger)
-    trainer.writer.add_figure('sensitivity', plot_sensitivities(sensitivities))
+    plt.savefig(plot_sensitivities(sensitivities), 'mnist_sensitivity_analysis_retrain.png')
 
     sensitivities_to_csv(sensitivities, 'mnist_sensitivity_analysis_retrain.csv')
 
@@ -189,7 +195,7 @@ if __name__ == "__main__":
     args = argparse.ArgumentParser(description=__doc__,
                                    formatter_class=lambda prog:
                                    argparse.ArgumentDefaultsHelpFormatter(prog, max_help_position=52, width=90))
-    args.add_argument('-c', '--config', default='config.json', type=str,
+    args.add_argument('-c', '--config', default=None, type=str,
                       help='config file path (default: None)')
     args.add_argument('-r', '--resume', default=None, type=str,
                       help='path to latest checkpoint (default: None)')

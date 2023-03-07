@@ -1,63 +1,67 @@
-import collections
-import argparse
-import sys
-
 import torch
-import torch.nn.functional as F
-import torch.nn.utils.prune as module_prune
+from torch.nn.utils.prune import BasePruningMethod, L1Unstructured
 import operator
 
-from parse_config import ConfigParser
-from trainer.trainer import Trainer
-import data as module_data
-import models as module_arch
-import evaluation as module_metric
 
-class ThresholdPruning(module_prune.BasePruningMethod):
+class ThresholdPruning(BasePruningMethod):
     PRUNING_TYPE = "unstructured"
 
-    def __init__(self, threshold):
-        self.threshold = threshold
+    def __init__(self, amount):
+        self.s = amount
 
     def compute_mask(self, tensor, default_mask):
-        return torch.abs(tensor) > self.threshold
+        threshold = torch.std(tensor).item() * self.s
+        return torch.abs(tensor) > threshold
 
 
-#TODO: alternatively prune linear and conv2d
-#TODO: iteratively prune and train
+# TODO: alternatively prune linear and conv2d
+# TODO: iteratively prune and train
 
-def threshold_prune_module(module, param_name, s, dim=None):
-    tensor = getattr(module, param_name).data.cpu()
-    shape = tensor.shape
-    threshold = torch.std(tensor).item() * s
-    print('*** Pruning with amount : %.3f for layer %s' % (
-        threshold, param_name))
-    if dim is None:
-        pruned_module = module_prune.l1_unstructured(module, name='weight', amount=threshold)
-    else:
-        pruned_module = module_prune.ln_structured(module, param_name, amount=threshold, n=1, dim=dim)
-    # calculate pruned weights
-    pruned_weights = torch.sum(pruned_module.weight_mask.flatten() == 0).item()
-    tot_weights = len(pruned_module.weight_mask.flatten())
-    print('*** Pruned %d weights (%.3f %%)' % (
-        pruned_weights, pruned_weights / tot_weights * 100,))
-    return pruned_weights, tot_weights
+def l1_threshold(module, name, amount):
+    ThresholdPruning.apply(module, name, amount=amount
+                           )
+    return module
 
+def l1_unstructured(module, name, amount, importance_scores=None):
+    r"""Prunes tensor corresponding to parameter called ``name`` in ``module``
+    by removing the specified `amount` of (currently unpruned) units with the
+    lowest L1-norm.
+    Modifies module in place (and also return the modified module)
+    by:
 
-def sparsity_prune_module(module, param_name, sparsity, dim=None):
-    tensor = getattr(module, param_name).data.cpu()
-    shape = tensor.shape
+    1) adding a named buffer called ``name+'_mask'`` corresponding to the
+       binary mask applied to the parameter ``name`` by the pruning method.
+    2) replacing the parameter ``name`` by its pruned version, while the
+       original (unpruned) parameter is stored in a new parameter named
+       ``name+'_orig'``.
 
-    if dim is None:
-        pruned_module = module_prune.l1_unstructured(module, name='weight', amount=sparsity)
-    else:
-        pruned_module = module_prune.ln_structured(module, param_name, amount=sparsity, n=1, dim=dim)
-    # calculate pruned weights
-    pruned_weights = torch.sum(pruned_module.weight_mask.flatten() == 0).item()
-    tot_weights = len(pruned_module.weight_mask.flatten())
-    print('*** Pruned %d weights (%.3f %%)' % (
-        pruned_weights, pruned_weights / tot_weights * 100,))
-    return pruned_weights, tot_weights
+    Args:
+        module (nn.Module): module containing the tensor to prune
+        name (str): parameter name within ``module`` on which pruning
+                will act.
+        amount (int or float): quantity of parameters to prune.
+            If ``float``, should be between 0.0 and 1.0 and represent the
+            fraction of parameters to prune. If ``int``, it represents the
+            absolute number of parameters to prune.
+        importance_scores (torch.Tensor): tensor of importance scores (of same
+            shape as module parameter) used to compute mask for pruning.
+            The values in this tensor indicate the importance of the corresponding
+            elements in the parameter being pruned.
+            If unspecified or None, the module parameter will be used in its place.
+
+    Returns:
+        module (nn.Module): modified (i.e. pruned) version of the input module
+
+    Examples:
+        >>> # xdoctest: +SKIP
+        >>> m = prune.l1_unstructured(nn.Linear(2, 3), 'weight', amount=0.2)
+        >>> m.state_dict().keys()
+        odict_keys(['bias', 'weight_orig', 'weight_mask'])
+    """
+    L1Unstructured.apply(
+        module, name, amount=amount, importance_scores=importance_scores
+    )
+    return module
 
 
 def count_nonzero_weights(model):
@@ -83,3 +87,5 @@ def prune_model(model, prune_fn, levels, logger=None):
         for p in module.parameters():
             p.requires_grad = True
     return model
+
+

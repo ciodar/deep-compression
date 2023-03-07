@@ -34,6 +34,7 @@ def main(config):
     checkpoint = torch.load(config.resume)
     state_dict = checkpoint['state_dict']
     logger.info('Accuracy before compression: {:.3f}'.format(checkpoint['monitor_best']))
+
     if config['n_gpu'] > 1:
         model = torch.nn.DataParallel(model)
     model.load_state_dict(state_dict)
@@ -47,37 +48,38 @@ def main(config):
     for pruner in pruners:
         prune_fn = getattr(prune, pruner['type'])
 
-        model = prune_model(model, prune_fn, pruner['levels'], logger)
+        iterations = 1 if not 'iterations' in pruner else pruner['iterations']
+        for it in range(iterations):
 
-        # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
-        trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-        optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
-        lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
+            model = prune_model(model, prune_fn, pruner['levels'], logger)
 
-        config.resume = None
+            # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
+            trainable_params = filter(lambda p: p.requires_grad, model.parameters())
+            optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
+            lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
 
-        trainer = Trainer(model, criterion, metrics, optimizer,
-                          config=config,
-                          device=device,
-                          data_loader=data_loader,
-                          valid_data_loader=valid_data_loader,
-                          lr_scheduler=lr_scheduler)
+            config.resume = None
 
-        if pruner['finetune_weights']:
-            trainer.train()
+            trainer = Trainer(model, criterion, metrics, optimizer,
+                              config=config,
+                              device=device,
+                              data_loader=data_loader,
+                              valid_data_loader=valid_data_loader,
+                              lr_scheduler=lr_scheduler)
 
-        _, acc1, acc5 = trainer._valid_epoch(-1).values()
+            if pruner['finetune_weights']:
+                trainer.train()
 
-        if logger is not None:
-            logger.info(
-                "Tested model after pruning - acc@1:{:.3f} | acc@5:{:.3f}".format(acc1, acc5))
+            _, acc1, acc5 = trainer._valid_epoch(-1).values()
+
+            if logger is not None:
+                logger.info(
+                    "Pruning iteration {:d} | acc@1:{:.3f} | acc@5:{:.3f}".format(it, acc1, acc5))
 
     quantizer = config['quantizer']
     quantize_fn = getattr(module_quantize, quantizer['type'])
 
     model = module_quantize.quantize_model(model, quantize_fn, quantizer['levels'], logger)
-
-
 
     # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
