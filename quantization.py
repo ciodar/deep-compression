@@ -73,13 +73,15 @@ class BaseQuantizationMethod(ABC):
     @classmethod
     def apply(cls, module, name, bits, *args, **kwargs):
         param = getattr(module, name).detach()
+        # get device on which the parameter is, then move to cpu
         device = param.device
-        shape = tuple(param.shape)
-        if len(shape) <= 2:
-            mat = csr_matrix(param.cpu()) if shape[0] < shape[1] else csc_matrix(param.cpu())
-            mat = mat.data
-        else:
-            mat = param.cpu().numpy(force=True)
+        shape = param.shape
+        # flatten weights to accommodate conv and fc layers
+        mat = param.cpu().view(-1, 1)
+
+        # does not really make sense if reshaping to a vector..
+        mat = csr_matrix(mat) if shape[0] < shape[1] else csc_matrix(mat)
+        mat = mat.data
 
         space = cls(*args, **kwargs).initialize_clusters(mat, 2 ** bits)
 
@@ -88,9 +90,9 @@ class BaseQuantizationMethod(ABC):
         kmeans.fit(mat.reshape(-1, 1))
 
         method = cls(*args, **kwargs)
-        # Have the quantization method remember what tensor it's been applied to
+        # Have the quantization method remember what tensor it's been applied to and weights shape
         method._tensor_name = name
-        method._shape = param.shape
+        method._shape = shape
 
         centers, indices = kmeans.cluster_centers_, kmeans.labels_
         centers = torch.nn.Parameter(torch.from_numpy(centers).float().to(device))
@@ -134,8 +136,30 @@ class ForgyQuantizationMethod(BaseQuantizationMethod):
 
 class DensityQuantizationMethod(BaseQuantizationMethod):
     def initialize_clusters(self, mat, n_points):
-        raise NotImplementedError
-        return None
+        x, cdf_counts = np.unique(mat, return_counts=True)
+        y = np.cumsum(cdf_counts) / np.sum(cdf_counts)
+
+        eps = 1e-2
+
+        space_y = np.linspace(y.min() + eps, y.max() - eps, n_points)
+
+        idxs = []
+        # TODO find numpy operator to eliminate for
+        for i in space_y:
+            idx = np.argwhere(np.diff(np.sign(y - i)))[0]
+            idxs.append(idx)
+
+        # plot the cdf
+        # sns.lineplot(x=x, y=y)
+        # sns.lineplot(x=x, y=y)
+        # for idx in idxs:
+        #     plt.plot(x[idx], y[idx], 'ro')
+        #     plt.hlines(y[idx], x.min(), x[idx], linestyles='--')
+        #     plt.vlines(x[idx], y.min(), y[idx], linestyles='--')
+        # plt.show()
+
+        idxs = np.stack(idxs)
+        return x[idxs]
 
     @classmethod
     def apply(cls, module, name, bits, *args, **kwargs):
@@ -149,6 +173,11 @@ def linear_quantization(module, name, bits):
 
 def forgy_quantization(module, name, bits):
     ForgyQuantizationMethod.apply(module, name, bits)
+    return module
+
+
+def density_quantization(module, name, bits):
+    DensityQuantizationMethod.apply(module, name, bits)
     return module
 
 

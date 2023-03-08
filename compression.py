@@ -7,7 +7,7 @@ import models as module_arch
 import evaluation as module_metric
 import quantization as module_quantize
 
-import torch.nn.utils.prune as prune
+import pruning as module_prune
 from pruning import prune_model
 
 from parse_config import ConfigParser
@@ -46,7 +46,7 @@ def main(config):
 
     pruners = config['pruners']
     for pruner in pruners:
-        prune_fn = getattr(prune, pruner['type'])
+        prune_fn = getattr(module_prune, pruner['type'])
 
         iterations = 1 if not 'iterations' in pruner else pruner['iterations']
         for it in range(iterations):
