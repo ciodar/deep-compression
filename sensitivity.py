@@ -20,9 +20,10 @@ import data as module_data
 import models as module_arch
 import evaluation as module_metric
 
-from quantization import quantize_model
 import pruning as module_prune
+import quantization as module_quantize
 from pruning import prune_model
+from quantization import quantize_model
 
 CHECKPOINT_DIR = os.path.dirname(os.path.abspath(__file__)) + '/checkpoints'
 RUNS_DIR = os.path.dirname(os.path.abspath(__file__)) + '/runs'
@@ -30,7 +31,7 @@ SEED = 42
 set_all_seeds(SEED)
 
 
-def sensitivity_analysis(trainer, sparsities, test_fn, train=True, logger=None):
+def pruning_sensitivity_analysis(trainer, sparsities, test_fn, train=True, logger=None):
     """Perform a sensitivity test for a model's weights parameters.
     The model should be trained to maximum accuracy, because we aim to understand
     the behavior of the model's performance in relation to pruning of a specific
@@ -104,6 +105,76 @@ def sensitivity_analysis(trainer, sparsities, test_fn, train=True, logger=None):
     return sensitivities
 
 
+def quantization_sensitivity_analysis(trainer, bits, test_fn, train=True, logger=None):
+    """Perform a sensitivity test for a model's weights parameters.
+    The model should be trained to maximum accuracy, because we aim to understand
+    the behavior of the model's performance in relation to pruning of a specific
+    weights tensor.
+    By default this function will test all of the model's parameters.
+    The return value is a complex sensitivities dictionary: the dictionary's
+    key is the name (string) of the weights tensor.  The value is another dictionary,
+    where the tested sparsity-level is the key, and a (top1, top5, loss) tuple
+    is the value.
+    Below is an example of such a dictionary:
+    .. code-block:: python
+    {'features.module.6.weight':    {0.0:  (56.518, 79.07,  1.9159),
+                                     0.05: (56.492, 79.1,   1.9161),
+                                     0.10: (56.212, 78.854, 1.9315),
+                                     0.15: (35.424, 60.3,   3.0866)},
+     'classifier.module.1.weight':  {0.0:  (56.518, 79.07,  1.9159),
+                                     0.05: (56.514, 79.07,  1.9159),
+                                     0.10: (56.434, 79.074, 1.9138),
+                                     0.15: (54.454, 77.854, 2.3127)} }
+    The test_func is expected to execute the model on a test/validation dataset,
+    and return the results for top1 and top5 accuracies, and the loss value.
+    """
+
+    sensitivities = OrderedDict()
+    model = trainer.model
+    quantizer = config['quantizer']
+    for param_name, bits in quantizer['levels'].items():
+
+        # Make a copy of the model, because when we apply the zeros mask (i.e.
+        # perform pruning), the model's weights are altered
+        model_cpy = deepcopy(model)
+        trainable_params = filter(lambda p: p.requires_grad, model_cpy.parameters())
+        optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
+        lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
+
+        trainer.model = model_cpy
+        trainer.optimizer = optimizer
+        trainer.lr_scheduler = lr_scheduler
+
+        sensitivity = OrderedDict()
+        for b in range(bits, 0, -1):
+            if logger is not None:
+                logger.info("Testing sensitivity of {} to {} [{:d} bits]".format(
+                    param_name, test_fn.__name__, b))
+            # Create the pruner (a level pruner), the pruning policy and the
+            # pruning schedule.
+
+            # Element-wise sparsity
+            levels = {param_name: b}
+
+            fn = getattr(module_quantize, quantizer["type"])
+
+            test_fn(model_cpy, fn, levels, logger)
+
+            # Test and record the performance of the pruned model
+            if train:
+                trainer.train()
+            _, acc1, acc5 = trainer._valid_epoch(-1).values()
+            if logger is not None:
+                logger.info(
+                    "Tested sensitivity of {} [{:d} bits] | acc@1:{:.4f} | acc@5:{:.4f}"
+                    .format(param_name,
+                            b,
+                            acc1, acc5))
+            sensitivity[b] = [acc1, acc5]
+        sensitivities[param_name] = sensitivity
+    return sensitivities
+
+
 def main(config):
     logger = config.get_logger('train')
 
@@ -139,10 +210,13 @@ def main(config):
                       valid_data_loader=valid_data_loader,
                       lr_scheduler=lr_scheduler)
 
-    levels = np.linspace(.1, 1, 9)
+    levels = range(1, 8)
 
-    sensitivities = sensitivity_analysis(trainer, levels, prune_model, train=True, logger=logger)
-    plt.savefig(plot_sensitivities(sensitivities), 'mnist_sensitivity_analysis_retrain.png')
+
+
+    sensitivities = quantization_sensitivity_analysis(trainer, levels, quantize_model, train=True, logger=logger)
+    fig = plot_sensitivities(sensitivities)
+    fig.savefig('mnist_sensitivity_analysis_retrain.png')
 
     sensitivities_to_csv(sensitivities, 'mnist_sensitivity_analysis_retrain.csv')
 

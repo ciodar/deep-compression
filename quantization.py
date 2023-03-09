@@ -57,11 +57,8 @@ class BaseQuantizationMethod(ABC):
         # weights.register_hook(print)
         if hasattr(module, self._tensor_name + '_mask'):
             mask = getattr(module, self._tensor_name + '_mask')
-            mat = mask.clone()
-            if mat.dim() == 2:
-                mat[mat == 1] = weights
-            else:
-                mat = weights
+            mat = mask.flatten()
+            mat[torch.argwhere(mat)] = weights.view(-1, 1)
         else:
             mat = weights
         return mat.view(self._shape)
