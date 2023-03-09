@@ -55,9 +55,9 @@ class Trainer(BaseTrainer):
                     epoch,
                     self._progress(batch_idx),
                     loss.item()))
-                for name, p in self.model.named_parameters():
-                    g = torch.nn.utils.clip_grad_norm_(p, torch.inf, norm_type=2.0, error_if_nonfinite=False)
-                    self.writer.add_scalar(name + '_grad', g)
+                # for name, p in self.model.named_parameters():
+                #     g = torch.nn.utils.clip_grad_norm_(p, torch.inf, norm_type=2.0, error_if_nonfinite=False)
+                #     self.writer.add_scalar(name + '_grad', g)
 
                 self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
 

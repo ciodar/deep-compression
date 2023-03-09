@@ -132,7 +132,9 @@ def quantization_sensitivity_analysis(trainer, bits, test_fn, train=True, logger
     sensitivities = OrderedDict()
     model = trainer.model
     quantizer = config['quantizer']
-    for param_name, bits in quantizer['levels'].items():
+    sensitivity = OrderedDict()
+
+    for b in range(bits, 0, -1):
 
         # Make a copy of the model, because when we apply the zeros mask (i.e.
         # perform pruning), the model's weights are altered
@@ -145,34 +147,31 @@ def quantization_sensitivity_analysis(trainer, bits, test_fn, train=True, logger
         trainer.optimizer = optimizer
         trainer.lr_scheduler = lr_scheduler
 
-        sensitivity = OrderedDict()
-        for b in range(bits, 0, -1):
-            if logger is not None:
-                logger.info("Testing sensitivity of {} to {} [{:d} bits]".format(
-                    param_name, test_fn.__name__, b))
-            # Create the pruner (a level pruner), the pruning policy and the
-            # pruning schedule.
+        if logger is not None:
+            logger.info("Testing sensitivity to {} [{:d} bits]".format( test_fn.__name__, b))
+        # Create the pruner (a level pruner), the pruning policy and the
+        # pruning schedule.
 
-            # Element-wise sparsity
-            levels = {param_name: b}
+        levels = quantizer['levels']
 
-            fn = getattr(module_quantize, quantizer["type"])
+        # Element-wise sparsity
+        levels = {p: b for p in levels.keys()}
 
-            test_fn(model_cpy, fn, levels, logger)
+        fn = getattr(module_quantize, quantizer["type"])
 
-            # Test and record the performance of the pruned model
-            if train:
-                trainer.train()
-            _, acc1, acc5 = trainer._valid_epoch(-1).values()
-            if logger is not None:
-                logger.info(
-                    "Tested sensitivity of {} [{:d} bits] | acc@1:{:.4f} | acc@5:{:.4f}"
-                    .format(param_name,
-                            b,
-                            acc1, acc5))
-            sensitivity[b] = [acc1, acc5]
-        sensitivities[param_name] = sensitivity
-    return sensitivities
+        test_fn(model_cpy, fn, levels, logger)
+
+        # Test and record the performance of the pruned model
+        if train:
+            trainer.train()
+        _, acc1, acc5 = trainer._valid_epoch(-1).values()
+        if logger is not None:
+            logger.info(
+                "Tested sensitivity [{:d} bits] | acc@1:{:.4f} | acc@5:{:.4f}"
+                .format(b,
+                        acc1, acc5))
+        sensitivity[b] = [acc1, acc5]
+    return sensitivity
 
 
 def main(config):
@@ -210,11 +209,9 @@ def main(config):
                       valid_data_loader=valid_data_loader,
                       lr_scheduler=lr_scheduler)
 
-    levels = range(1, 8)
+    bits = 8
 
-
-
-    sensitivities = quantization_sensitivity_analysis(trainer, levels, quantize_model, train=True, logger=logger)
+    sensitivities = quantization_sensitivity_analysis(trainer, bits, quantize_model, train=True, logger=logger)
     fig = plot_sensitivities(sensitivities)
     fig.savefig('mnist_sensitivity_analysis_retrain.png')
 
