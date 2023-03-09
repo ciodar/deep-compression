@@ -21,11 +21,11 @@
         }
     },
     "optimizer": {
-        "type": "AdamW",
+        "type": "SGD",
         "args":{
-            "lr": 0.001,
-            "weight_decay": 1e-3,
-            "amsgrad": true
+            "lr": 5e-2,
+            "momentum": 0.28,
+            "weight_decay": 1e-4
         }
     },
     "loss": "cross_entropy",
@@ -33,16 +33,16 @@
     "lr_scheduler": {
         "type": "StepLR",
         "args": {
-            "step_size": 5,
-            "gamma": 0.1
+            "step_size": 10,
+            "gamma": 0.04
         }
     },
     "trainer": {
         "epochs": 20,
         "save_dir": "runs/",
-        "save_period": -1,
+        "save_period": 5,
         "verbosity": 1,
-        "monitor": "min accuracy",
+        "monitor": "max val_accuracy",
         "early_stop": 5,
         "tensorboard": true
     },
@@ -63,11 +63,11 @@
         "type": "linear_quantization",
         "finetune_weights": true,
         "levels": {
-                "conv1.weight": 6,
-                "conv2.weight": 6,
-                "fc.weight": 5,
-                "fc1.weight": 5,
-                "fc2.weight": 5
-            }
+            "conv1.weight": 6,
+            "conv2.weight": 8,
+            "fc.weight": 5,
+            "fc1.weight": 5,
+            "fc2.weight": 5
+        }
     }
 }
