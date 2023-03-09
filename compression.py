@@ -33,7 +33,7 @@ def main(config):
     logger.info('Loading checkpoint: {} ...'.format(config.resume))
     checkpoint = torch.load(config.resume)
     state_dict = checkpoint['state_dict']
-    logger.info('Accuracy before compression: {:.3f}'.format(checkpoint['monitor_best']))
+    logger.info('Accuracy before compression: {:.4f}'.format(checkpoint['monitor_best']))
 
     if config['n_gpu'] > 1:
         model = torch.nn.DataParallel(model)
@@ -74,7 +74,7 @@ def main(config):
 
             if logger is not None:
                 logger.info(
-                    "Pruning iteration {:d} | acc@1:{:.3f} | acc@5:{:.3f}".format(it, acc1, acc5))
+                    "Pruning iteration {:d} | acc@1:{:.4f} | acc@5:{:.4f}".format(it, acc1, acc5))
 
     quantizer = config['quantizer']
     quantize_fn = getattr(module_quantize, quantizer['type'])
@@ -100,7 +100,7 @@ def main(config):
 
     if logger is not None:
         logger.info(
-            "Tested model after quantization - acc@1:{:.3f} | acc@5:{:.3f}".format(acc1, acc5))
+            "Tested model after quantization - acc@1:{:.4f} | acc@5:{:.4f}".format(acc1, acc5))
 
 
 if __name__ == '__main__':

@@ -57,7 +57,7 @@ class BaseQuantizationMethod(ABC):
         # weights.register_hook(print)
         if hasattr(module, self._tensor_name + '_mask'):
             mask = getattr(module, self._tensor_name + '_mask')
-            mat = mask.flatten()
+            mat = mask.detach().flatten()
             mat[torch.argwhere(mat)] = weights.view(-1, 1)
         else:
             mat = weights
@@ -79,7 +79,8 @@ class BaseQuantizationMethod(ABC):
         # does not really make sense if reshaping to a vector..
         mat = csr_matrix(mat) if shape[0] < shape[1] else csc_matrix(mat)
         mat = mat.data
-
+        # if mat.getnnz() > 2 ** bits:
+        #     bits = int(log(mat.getnnz())
         space = cls(*args, **kwargs).initialize_clusters(mat, 2 ** bits)
 
         kmeans = KMeans(n_clusters=len(space), init=space.reshape(-1, 1), n_init=1,

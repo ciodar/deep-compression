@@ -1,50 +1,47 @@
 {
     "name": "Mnist_LeNet300",
     "n_gpu": 1,
+
     "arch": {
-        "type": "LeNet5",
+        "type": "LeNet300",
         "args": {
-            "num_classes": 10,
-            "grayscale": true
+            "num_classes": 10
         }
     },
     "data_loader": {
         "type": "MnistDataLoader",
-        "args": {
+        "args":{
             "data_dir": "data/",
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.1,
             "num_workers": 2,
-            "resize": true
+            "resize": false
         }
     },
     "optimizer": {
         "type": "SGD",
         "args":{
-            "lr": 1e-2,
+            "lr": 5e-2,
             "momentum": 0.9,
-            "weight_decay": 1e-6
+            "weight_decay": 5e-4
         }
     },
     "loss": "cross_entropy",
-    "metrics": [
-        "accuracy",
-        "topk_accuracy"
-    ],
+    "metrics": ["accuracy","topk_accuracy"],
     "lr_scheduler": {
-        "type": "ReduceLROnPlateau",
+        "type": "StepLR",
         "args": {
-            "mode": "max",
-            "factor": 0.1
+            "step_size": 5,
+            "gamma": 0.1
         }
     },
     "trainer": {
         "epochs": 20,
         "save_dir": "runs/",
-        "save_period": -1,
+        "save_period": 5,
         "verbosity": 1,
-        "monitor": "min val_loss",
+        "monitor": "max val_accuracy",
         "early_stop": 5,
         "tensorboard": true
     },

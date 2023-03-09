@@ -73,7 +73,7 @@ def prune_model(model, prune_fn, levels, logger=None):
         p.requires_grad = False
     for param, amount in levels.items():
         if logger is not None:
-            logger.info('Pruning {} with amount {:.2f}'.format(param, amount))
+            logger.debug('Pruning {} with amount {:.2f}'.format(param, amount))
         # get param name separated from module
         m, param = param.split('.')[0:-1], param.split('.')[-1]
         module = operator.attrgetter('.'.join(m))(model)

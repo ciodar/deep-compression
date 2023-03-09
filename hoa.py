@@ -37,10 +37,17 @@ def objective(trial):
     wd = trial.suggest_float("wd", 1e-5, 1e-1, log=True)
     m = trial.suggest_float("m", 0, 1)
 
+    scheduler = trial.suggest_categorical("scheduler", [None, "StepLR"])
 
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = getattr(torch.optim, config['optimizer']['type'])(model.parameters(), lr=lr, weight_decay=wd, momentum=m)
-    lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
+    optimizer = getattr(torch.optim, config['optimizer']['type'])(model.parameters(), lr=lr, weight_decay=wd,
+                                                                  momentum=m)
+    lr_scheduler = None
+    if scheduler is not None:
+        sz = trial.suggest_int("sz", 1, EPOCHS)
+        g = trial.suggest_float("g", 1e-3, 9e-1, log=True)
+
+        lr_scheduler = getattr(torch.optim.lr_scheduler, scheduler)(optimizer, step_size=sz, gamma=g)
 
     train_metrics = MetricTracker('loss', *[m.__name__ for m in metrics], writer=None)
     valid_metrics = MetricTracker('loss', *[m.__name__ for m in metrics], writer=None)
@@ -76,6 +83,9 @@ def objective(trial):
                     valid_metrics.update(met.__name__, met(output, target))
 
         accuracy = valid_metrics.result()['accuracy']
+
+        if lr_scheduler is not None:
+            lr_scheduler.step()
 
         trial.report(accuracy, epoch)
 
