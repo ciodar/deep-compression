@@ -1,5 +1,5 @@
 import torch
-from torch.nn.utils.prune import BasePruningMethod, L1Unstructured
+from torch.nn.utils.prune import BasePruningMethod, L1Unstructured, is_pruned
 import operator
 
 
@@ -21,6 +21,7 @@ def l1_threshold(module, name, amount):
     ThresholdPruning.apply(module, name, amount=amount
                            )
     return module
+
 
 def l1_unstructured(module, name, amount, importance_scores=None):
     r"""Prunes tensor corresponding to parameter called ``name`` in ``module``
@@ -62,30 +63,3 @@ def l1_unstructured(module, name, amount, importance_scores=None):
         module, name, amount=amount, importance_scores=importance_scores
     )
     return module
-
-
-def count_nonzero_weights(model):
-    return sum(p.weight.numel() for n, p in model.named_modules() if hasattr(p, 'weight'))
-
-
-def prune_model(model, prune_fn, levels, logger=None):
-    for p in model.parameters():
-        p.requires_grad = False
-    for param, amount in levels.items():
-        if logger is not None:
-            logger.debug('Pruning {} with amount {:.2f}'.format(param, amount))
-        # get param name separated from module
-        m, param = param.split('.')[0:-1], param.split('.')[-1]
-        module = operator.attrgetter('.'.join(m))(model)
-        prune_fn(module, param, amount)
-        # calculate compression stats
-        param_vector = torch.nn.utils.parameters_to_vector(module._buffers[param + '_mask'])
-        if logger is not None:
-            logger.info('Pruned {} weights ({:.2%} retained)'.format(sum(param_vector == 0).item(),
-                                                                     sum(param_vector == 1).item() / len(param_vector)))
-        # Always retrain all parameters (eg. bias) even if not pruned
-        for p in module.parameters():
-            p.requires_grad = True
-    return model
-
-

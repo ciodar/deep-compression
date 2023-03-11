@@ -6,16 +6,16 @@
 | Network              | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
 |----------------------|-------------|-------------|------------|------------------|
 | LeNet-300-100 Ref    | 1.30%       | -           | 267K       | -                |
-| LeNet-300-100 Pruned | 1.12%       | -           | **22K**    | **12X**          |
+| LeNet-300-100 Pruned | 1.40%       | -           | **22K**    | **12X**          |
 | LeNet-5 Ref          | 0.99%       | -           | 431K       | -                |
-| LeNet-5 Pruned       | 1.2%        | -           |            |                  |
+| LeNet-5 Pruned       | 0.93%       | -           | **36K**    | **12X**          |
 
 ## CIFAR-100
 
-| Network              | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
-|----------------------|-------------|-------------|------------|------------------|
-| LeNet-5 Ref          | 0.99%       | -           | 431K       | -                |
-| LeNet-5 Pruned       | 1.2%        | -           |            |                  |
+| Network        | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
+|----------------|-------------|-------------|------------|------------------|
+| LeNet-5 Ref    | 61.17%      | 31.55%      | 431K       | -                |
+| LeNet-5 Pruned |             | -           |            |                  |
 
 ## Imagenette
 | Network              | Top-1 Error | Top-5 Error | Parameters | Compression Rate |

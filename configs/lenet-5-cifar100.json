@@ -1,0 +1,73 @@
+{
+    "name": "CIFAR100_LeNet5",
+    "n_gpu": 1,
+
+    "arch": {
+        "type": "LeNet5",
+        "args": {
+            "num_classes": 10,
+            "grayscale": false
+        }
+    },
+    "data_loader": {
+        "type": "Cifar100DataLoader",
+        "args":{
+            "data_dir": "data/",
+            "batch_size": 128,
+            "shuffle": true,
+            "validation_split": 0.1,
+            "num_workers": 2,
+            "resize": false
+        }
+    },
+    "optimizer": {
+        "type": "SGD",
+        "args":{
+            "lr": 5e-2,
+            "momentum": 0.28,
+            "weight_decay": 1e-4
+        }
+    },
+    "loss": "cross_entropy",
+    "metrics": ["accuracy","topk_accuracy"],
+    "lr_scheduler": {
+        "type": "StepLR",
+        "args": {
+            "step_size": 10,
+            "gamma": 0.04
+        }
+    },
+    "trainer": {
+        "epochs": 20,
+        "save_dir": "runs/",
+        "save_period": 5,
+        "verbosity": 1,
+        "monitor": "max val_accuracy",
+        "early_stop": 5,
+        "tensorboard": true
+    },
+    "pruners": [
+        {
+            "type": "l1_unstructured",
+            "finetune_weights": true,
+            "levels": {
+                "conv1.weight": 0.34,
+                "conv2.weight": 0.88,
+                "fc.weight": 0.92,
+                "fc1.weight": 0.92,
+                "fc2.weight": 0.81
+            }
+        }
+    ],
+    "quantizer": {
+        "type": "linear_quantization",
+        "finetune_weights": true,
+        "levels": {
+            "conv1.weight": 6,
+            "conv2.weight": 8,
+            "fc.weight": 5,
+            "fc1.weight": 5,
+            "fc2.weight": 5
+        }
+    }
+}
