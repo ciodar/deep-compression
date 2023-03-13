@@ -1,13 +1,6 @@
-import argparse
-import collections
-import operator
 import os
-import sys
 from abc import ABC, abstractmethod
 from typing import Tuple
-
-from parse_config import ConfigParser
-from trainer.trainer import Trainer
 
 # suppress Kmeans warning of memory leak in Windows
 os.environ['OMP_NUM_THREADS'] = "1"
@@ -18,12 +11,8 @@ import torch.nn.functional as F
 import torch.nn.utils.prune as prune
 
 import numpy as np
-from scipy.sparse import csc_matrix, csr_matrix
+from scipy.sparse import csr_matrix
 from sklearn.cluster import KMeans
-
-import data as module_data
-import models as module_arch
-import evaluation as module_metric
 
 
 # Quantization base class inspired on torch.nn.utils.BasePruningMethod
@@ -76,11 +65,11 @@ class BaseQuantizationMethod(ABC):
         # flatten weights to accommodate conv and fc layers
         mat = param.cpu().view(-1, 1)
 
-        # does not really make sense if reshaping to a vector..
-        mat = csr_matrix(mat) if shape[0] < shape[1] else csc_matrix(mat)
+        mat = csr_matrix(mat)
         mat = mat.data
-        # if mat.getnnz() > 2 ** bits:
-        #     bits = int(log(mat.getnnz())
+        if mat.shape[0] < 2 ** bits:
+            bits = int(np.log2(mat.shape[0]))
+            print("Warning: number of elements {} is less than number of clusters. using {} bits for quantization.".format(mat.shape[0],bits))
         space = cls(*args, **kwargs).initialize_clusters(mat, 2 ** bits)
 
         kmeans = KMeans(n_clusters=len(space), init=space.reshape(-1, 1), n_init=1,
@@ -146,16 +135,6 @@ class DensityQuantizationMethod(BaseQuantizationMethod):
         for i in space_y:
             idx = np.argwhere(np.diff(np.sign(y - i)))[0]
             idxs.append(idx)
-
-        # plot the cdf
-        # sns.lineplot(x=x, y=y)
-        # sns.lineplot(x=x, y=y)
-        # for idx in idxs:
-        #     plt.plot(x[idx], y[idx], 'ro')
-        #     plt.hlines(y[idx], x.min(), x[idx], linestyles='--')
-        #     plt.vlines(x[idx], y.min(), y[idx], linestyles='--')
-        # plt.show()
-
         idxs = np.stack(idxs)
         return x[idxs]
 
@@ -179,21 +158,12 @@ def density_quantization(module, name, bits):
     return module
 
 
-def quantize_model(model, quantize_fn, levels, logger=None):
-    for p in model.parameters():
-        p.requires_grad = False
-    for param, bits in levels.items():
-        if logger is not None:
-            logger.info('Quantizing {} in {:d} bits'.format(param, bits))
-        # get param name separated from module
-        m, param = param.split('.')[0:-1], param.split('.')[-1]
-        module = operator.attrgetter('.'.join(m))(model)
-        quantize_fn(module, param, bits)
-        # calculate compression stats
-        # Always retrain all parameters (eg. bias) even if not pruned
-        for p in module.parameters():
-            p.requires_grad = True
-    return model
+def is_quantized(module):
+    for _, submodule in module.named_modules():
+        for _, hook in submodule._forward_pre_hooks.items():
+            if isinstance(hook, BaseQuantizationMethod):
+                return True
+    return False
 
 
 def compression_rate(module, name, bits, weight_bits=32):
@@ -207,9 +177,4 @@ def compression_rate(module, name, bits, weight_bits=32):
     return cr
 
 
-def is_quantized(module):
-    for _, submodule in module.named_modules():
-        for _, hook in submodule._forward_pre_hooks.items():
-            if isinstance(hook, BaseQuantizationMethod):
-                return True
-    return False
+

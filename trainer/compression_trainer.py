@@ -15,7 +15,7 @@ class CompressionTrainer(Trainer):
         self.pruners = self.config['pruners']
         self.quantizer = self.config['quantizer']
 
-    def compress(self):
+    def prune(self):
         if self.config.resume is None:
             self.train()
         self.logger.info('Accuracy before compression: {:.4f}'.format(self.mnt_best))
@@ -48,18 +48,21 @@ class CompressionTrainer(Trainer):
             tot_params - tot_retained, tot_retained, tot_retained / tot_params, tot_params / tot_retained
         ))
 
+    def quantize(self):
         quantize_fn = getattr(module_quantize, self.quantizer['type'])
         self.quantize_model(quantize_fn, self.quantizer['levels'])
 
         if self.quantizer['finetune_epochs'] > 0:
             self.start_epoch = 1
-            self.epochs = pruner['finetune_epochs']
+            self.epochs = self.quantizer['finetune_epochs']
             self.train()
 
         _, acc1, acc5 = self._valid_epoch(self.start_epoch + 1).values()
 
         self.logger.info(
             "Tested model after quantization - acc@1:{:.4f} | acc@5:{:.4f}".format(acc1, acc5))
+
+
 
     def prune_model(self, prune_fn, levels):
         for p in self.model.parameters():
@@ -94,7 +97,6 @@ class CompressionTrainer(Trainer):
             m, param = param.split('.')[0:-1], param.split('.')[-1]
             module = operator.attrgetter('.'.join(m))(self.model)
             quantize_fn(module, param, bits)
-            # calculate compression stats
-            # Always retrain all parameters (eg. bias) even if not pruned
+            # Retrain all parameters of quantized model (also bias) even if not pruned
             for p in module.parameters():
                 p.requires_grad = True

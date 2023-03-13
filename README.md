@@ -15,17 +15,31 @@
 | Network        | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
 |----------------|-------------|-------------|------------|------------------|
 | LeNet-5 Ref    | 61.17%      | 31.55%      | 431K       | -                |
-| LeNet-5 Pruned |             | -           |            |                  |
+| LeNet-5 Pruned | 61.89%      | 31.87%      | **50K**    | **11X**          |
 
 ## Imagenette
 | Network              | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
 |----------------------|-------------|-------------|------------|------------------|
 | AlexNet Ref          | 20.80%      | 3.33%       | 61M        | -                |
 | AlexNet Pruned       |             |             |            |                  |
-| VGG16 Ref            | 20.80%      | 3.33%       | 61M        | -                |
+| VGG16 Ref            | -           | -           | 61M        | -                |
 | VGG16 Pruned         |             |             |            |                  |
 
 # Quantization
+
+| Network | Quantization type | Top-1 Error | Top-5 Error |
+|---------|-------------------|-------------|-------------|
+| LeNet-5 | Forgy             | 61.27%      | 30.25%      |
+| LeNet-5 | Density-based     |             |             |
+| LeNet-5 | Linear            | -           | -           |
+| AlexNet | Forgy             |             |             |
+| AlexNet | Density-based     |             |             |
+| AlexNet | Linear            | -           | -           |
+| VGG-16  | Forgy             |             |             |
+| VGG-16  | Density-based     |             |             |
+| VGG-16  | Linear            | -           | -           |
+
+
 
 
 

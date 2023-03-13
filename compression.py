@@ -8,6 +8,10 @@ import evaluation as module_metric
 
 from parse_config import ConfigParser
 from trainer.compression_trainer import CompressionTrainer
+from utils import set_all_seeds
+
+SEED = 42
+set_all_seeds(SEED)
 
 def main(config):
     logger = config.get_logger('compression')
@@ -24,7 +28,6 @@ def main(config):
     criterion = getattr(F, config['loss'])
     metrics = [getattr(module_metric, met) for met in config['metrics']]
 
-    logger.info('Loading checkpoint: {} ...'.format(config.resume))
     checkpoint = torch.load(config.resume)
     state_dict = checkpoint['state_dict']
     logger.info('Accuracy before compression: {:.4f}'.format(checkpoint['monitor_best']))
@@ -50,7 +53,8 @@ def main(config):
                       valid_data_loader=valid_data_loader,
                       lr_scheduler=lr_scheduler)
 
-    trainer.compress()
+    trainer.prune()
+    trainer.quantize()
 
 
 if __name__ == '__main__':

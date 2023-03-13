@@ -51,8 +51,14 @@
             "type": "l1_unstructured",
             "finetune_weights": true,
             "levels": {
-                "conv1.weight": 0.34,
-                "conv2.weight": 0.88,
+                "conv1.weight": 0.24,
+                "conv2.weight": 0.88
+            }
+        },
+        {
+            "type": "l1_unstructured",
+            "finetune_weights": true,
+            "levels": {
                 "fc.weight": 0.92,
                 "fc1.weight": 0.92,
                 "fc2.weight": 0.81
