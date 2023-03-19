@@ -1,6 +1,14 @@
+import logging
+from typing import Tuple
+
 import torch
+from torch import nn
 from torch.nn.utils.prune import BasePruningMethod, L1Unstructured, is_pruned, Identity
 import operator
+
+from pytorch_lightning.callbacks import ModelPruning
+
+log = logging.getLogger(__name__)
 
 
 # custom pruning
@@ -97,3 +105,32 @@ def identity(module, name):
     """
     Identity.apply(module, name)
     return module
+
+
+def get_pruned(module: nn.Module, name: str) -> Tuple[int, int]:
+    attr = f"{name}_mask"
+    if not hasattr(module, attr):
+        return 0, 1
+    mask = getattr(module, attr)
+    return (mask == 0).sum().item(), mask.numel()
+
+
+def sparsity_stats(model, name="weight"):
+
+    diff_bits = 5
+
+    sparsity_dict = {n: get_pruned(m, name) for n, m in model.named_modules() if getattr(m, name, None) is not None}
+    log.info(f"Sparsity stats of `{model.__class__.__name__}` - `{name}`:")
+    for name, (z, p) in sparsity_dict.items():
+        log.info(f"  Layer {name}: retained {p - z}/{p} ({(p - z) / p:.2%}) ")
+    zeros, params = zip(*sparsity_dict.values())
+    total_params = sum(params)
+    total_zeros = sum(zeros)
+    total_retained = total_params - total_zeros
+    log.info(
+        "Total:"
+        f"  Pruned: {total_zeros}/{total_params} ({total_zeros / total_params:.2%})"
+        f"  Retained: {total_retained}/{total_params} ({total_retained / total_params:.2%})"
+        f"  Compression: {total_params / total_retained:.1f} X"
+    )
+    return total_retained, total_zeros

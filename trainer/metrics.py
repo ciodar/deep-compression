@@ -1,9 +1,4 @@
-import os
-
-import numpy as np
 import torch
-SENSITIVITY_DIR = os.path.dirname(os.path.abspath(__file__)) + '/runs/sensitivity/'
-
 
 def accuracy(output, target):
     with torch.no_grad():

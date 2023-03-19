@@ -84,7 +84,7 @@ class MnistDataLoader(BaseDataLoader):
             transforms.Normalize((0.1307,), (0.3081,))
         ]
         if resize:
-            ts.append(transforms.Resize(32))
+            ts.append(transforms.Resize(32, antialias=True))
         transform = transforms.Compose(ts)
         self.data_dir = data_dir
         self.dataset = datasets.MNIST(root=self.data_dir, train=training, download=True, transform=transform)
@@ -133,7 +133,8 @@ class MINDataset(Dataset):
 
 
 class ImagenetteDataLoader(BaseDataLoader):
-    def __init__(self, batch_size, data_dir=os.path.join(DATA_DIR, 'imagenette2'), shuffle=True, validation_split=0.0, num_workers=1,
+    def __init__(self, batch_size, data_dir=os.path.join(DATA_DIR, 'imagenette2'), shuffle=True, validation_split=0.0,
+                 num_workers=1,
                  training=True):
         traindir = os.path.join(data_dir, 'train')
         testdir = os.path.join(data_dir, 'val')
@@ -164,6 +165,7 @@ class ImagenetteDataLoader(BaseDataLoader):
         )
 
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
+
 
 class ImagenetDataLoader(BaseDataLoader):
     # calculated dataset mean and variance for standardization

@@ -1,2 +1,2 @@
 from .logger import *
-from .tensorboard import *
+from pytorch_lightning.loggers import *

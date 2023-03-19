@@ -13,56 +13,30 @@ import collections
 import os
 import argparse
 
-import torch
-import torch.nn.functional as F
-
 from parse_config import ConfigParser
-from trainer.trainer import Trainer
+from trainer.lit_model import LitModel
+from trainer.trainer import get_trainer
 
 from utils import set_all_seeds
 
 import data as module_data
 import models as module_arch
-import evaluation as module_metric
 
-CHECKPOINT_DIR = os.path.dirname(os.path.abspath(__file__)) + '/checkpoints'
-RUNS_DIR = os.path.dirname(os.path.abspath(__file__)) + '/runs'
 SEED = 42
 set_all_seeds(SEED)
 
 
 def main(config):
-    logger = config.get_logger('train')
+    logger = config.get_logger('lightning')
 
-    # setup data_loader instances
     data_loader = config.init_obj('data_loader', module_data)
     valid_data_loader = data_loader.split_validation()
 
-    # build model architecture, then print to console
-    model = config.init_obj('arch', module_arch)
+    model = LitModel(config, config.init_obj('arch', module_arch))
     logger.info(model)
 
-    # prepare for (multi-device) GPU training
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    model = model.to(device)
-
-    # get function handles of loss and metrics
-    criterion = getattr(F, config['loss'])
-    metrics = [getattr(module_metric, met) for met in config['metrics']]
-    #
-    # # build optimizer, learning rate scheduler. delete every lines containing lr_scheduler for disabling scheduler
-    trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-    optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
-    lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
-    #
-    trainer = Trainer(model, criterion, metrics, optimizer,
-                      config=config,
-                      device=device,
-                      data_loader=data_loader,
-                      valid_data_loader=valid_data_loader,
-                      lr_scheduler=lr_scheduler)
-
-    trainer.train()
+    trainer = get_trainer(config)
+    trainer.fit(model, data_loader, valid_data_loader)
 
 
 if __name__ == "__main__":

@@ -4,14 +4,15 @@ import torch.nn.functional as F
 
 
 class LeNet300(nn.Module):
-    def __init__(self, num_classes, activation=F.relu, dropout_rate=0):
+    def __init__(self, num_classes, grayscale=True, dropout_rate=0):
         super().__init__()
+
         self.fc1 = nn.Linear(28 * 28, 300)
         self.fc2 = nn.Linear(300, 100)
         self.fc3 = nn.Linear(100, num_classes)
         self.dropout = nn.Dropout(dropout_rate)
         # activation function for hidden layers
-        self.activation = activation
+        self.activation = F.relu
 
     def forward(self, x):
         out = torch.flatten(x, 1)
@@ -23,12 +24,12 @@ class LeNet300(nn.Module):
         return out
 
 
-# Defining the convolutional neural network
+
 class LeNet5(nn.Module):
-    def __init__(self, num_classes, grayscale=False, activation=F.relu, dropout=0):
+    def __init__(self, num_classes, grayscale=True, dropout_rate=0):
         super().__init__()
-        self.grayscale = grayscale
-        if self.grayscale:
+
+        if grayscale:
             in_channels = 1
         else:
             in_channels = 3
@@ -38,9 +39,9 @@ class LeNet5(nn.Module):
         self.fc = nn.Linear(16 * 5 * 5 * in_channels, 120 * in_channels)
         self.fc1 = nn.Linear(120 * in_channels, 84 * in_channels)
         self.fc2 = nn.Linear(84 * in_channels, num_classes)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout = nn.Dropout(dropout_rate)
         # activation function for hidden layers
-        self.activation = activation
+        self.activation = F.relu
 
     def forward(self, x):
         out = self.activation(self.conv1(x))

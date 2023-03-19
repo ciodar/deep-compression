@@ -1,3 +1,5 @@
+import logging
+import math
 import os
 from abc import ABC, abstractmethod
 from typing import Tuple
@@ -13,6 +15,8 @@ import torch.nn.utils.prune as prune
 import numpy as np
 from scipy.sparse import csr_matrix
 from sklearn.cluster import KMeans
+
+log = logging.getLogger(__name__)
 
 
 # Quantization base class inspired on torch.nn.utils.BasePruningMethod
@@ -69,11 +73,14 @@ class BaseQuantizationMethod(ABC):
         mat = mat.data
         if mat.shape[0] < 2 ** bits:
             bits = int(np.log2(mat.shape[0]))
-            print("Warning: number of elements {} is less than number of clusters. using {} bits for quantization.".format(mat.shape[0],bits))
+            log.warning("Number of elements in weight matrix ({}) is less than number of clusters ({:d}). \
+                        using {:d} bits for quantization."
+                        .format(mat.shape[0], 2 ** bits, bits))
         space = cls(*args, **kwargs).initialize_clusters(mat, 2 ** bits)
 
+        # could do more than one initialization for better results
         kmeans = KMeans(n_clusters=len(space), init=space.reshape(-1, 1), n_init=1,
-                        algorithm="full")
+                        algorithm="lloyd")
         kmeans.fit(mat.reshape(-1, 1))
 
         method = cls(*args, **kwargs)
@@ -166,15 +173,43 @@ def is_quantized(module):
     return False
 
 
-def compression_rate(module, name, bits, weight_bits=32):
-    param = getattr(module, name).data.cpu()
-    orig = getattr(module, name + '_orig').data.cpu()
-    if prune.module.is_pruned():
-        n_weights = param.getnnz()
-    else:
-        n_weights = param.numel()
-    cr = orig.numel() * 32 / n_weights * bits + 2 ** bits * weight_bits
+def get_compression(module, name):
+    # bits encoding weights
+    weight_bits = 32
+    # bits encoding the index difference in pruning mask
+    diff_bits = 5
+
+    all_weights = getattr(module, name).numel()
+    weights = all_weights
+    q_idx, nz_weights, idx_bits = 0, 0, 0
+
+    if prune.is_pruned(module):
+        attr = f"{name}_mask"
+        mask = getattr(module, attr)
+        weights = (mask == 0).sum().item()
+        nz_weights = weights
+    if is_quantized(module):
+        attr = f"{name}_centers"
+        weights = getattr(module, attr).numel()
+        attr = f"{name}_indices"
+        q_idx = getattr(module, attr).numel()
+        idx_bits = math.log2(weights)
+
+    return all_weights * weight_bits, weights * weight_bits + q_idx * idx_bits + nz_weights * diff_bits
+
+
+def compression_stats(model, name="weight"):
+    weight_bits = 32
+
+    compression_dict = {n: get_compression(m, name) for n, m in model.named_modules() if
+                        getattr(m, name, None) is not None}
+    log.info(f"Compression stats of `{model.__class__.__name__}` - `{name}`:")
+    for name, (n, d) in compression_dict.items():
+        cr = n / d
+        log.info(f"  Layer {name}: compression rate {1 / cr:.2%} ({cr:.1f}X) ")
+    n, d = zip(*compression_dict.values())
+    total_params = sum(n)
+    total_d = sum(d)
+    cr = total_params / total_d
+    log.info(f"Total compression rate: {1 / cr:.2%} ({cr:.1f}X) ")
     return cr
-
-
-
