@@ -13,6 +13,8 @@ import collections
 import os
 import argparse
 
+import torch
+
 from parse_config import ConfigParser
 from trainer.lit_model import LitModel
 from trainer.trainer import get_trainer
@@ -33,6 +35,9 @@ def main(config):
     valid_data_loader = data_loader.split_validation()
 
     model = LitModel(config, config.init_obj('arch', module_arch))
+    if config.resume:
+        checkpoint = torch.load(config.resume)
+        model.load_state_dict(checkpoint['state_dict'])
     logger.info(model)
 
     trainer = get_trainer(config)

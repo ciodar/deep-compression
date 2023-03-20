@@ -33,12 +33,22 @@ class LitModel(lit.LightningModule):
             self.log('val_' + met.__name__, met(logits, y), on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
+    def on_validation_epoch_end(self):
+        super().on_validation_epoch_end()
+        # log model parameters
+        tensorboard = self.logger.experiment
+        for name, p in self.model.state_dict().items():
+            tensorboard.add_histogram(name, p, self.global_step)
+
     def configure_optimizers(self):
         trainable_params = filter(lambda p: p.requires_grad, self.parameters())
         optimizer = self.config.init_obj('optimizer', torch.optim, trainable_params)
         if 'lr_scheduler' in self.config.config:
             lr_scheduler = self.config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
             scheduler_dict = {"scheduler": lr_scheduler, "interval": "epoch"}
+            if isinstance(lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                mnt = self.config['trainer']['monitor'].split()[1]
+                scheduler_dict['monitor'] = mnt
         else:
             return optimizer
         return [optimizer], [scheduler_dict]

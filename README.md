@@ -6,12 +6,11 @@
   model-compression/
   │
   ├── train.py - main script to start training
-  ├── compress.py - compression of trained model
   ├── test.py - evaluation of trained model 
   │
   ├── configs/ - directory of saved model configurations for various datasets and models
-  ├── config.json - holds current configuration for training
-  ├── parse_config.py - class to handle config file and cli options
+  ├── config.json - default working configuration file for training
+  ├── parse_config.py - handles config file and cli options
   │
   ├── data.py - anything about data loading goes here
   │   ├── BaseDataLoader - Abstract Base Class for Dataloader
@@ -27,8 +26,8 @@
   │   └── vgg.py - Implementation of VGG-16
   │
   ├── notebooks/ - directory containing example notebooks 
-  │   ├── mnist-lenet300.ipynb - Deep Compression pipeline on MNIST with LeNet-300-100 FC model
-  │   ├── mnist-lenet5.ipynb - Deep Compression pipeline on MNIST with LeNet-5 model
+  │   ├── mnist-lenet300.ipynb - Deep Compression pipeline example on MNIST with LeNet-300-100 FC model
+  │   ├── mnist-lenet5.ipynb - Deep Compression pipeline example on MNIST with LeNet-5 model
   │   └── ...
   │
   ├── runs/
@@ -36,12 +35,11 @@
   │   └── log/ - default logdir for tensorboard and logging output
   │
   ├── trainer/ - trainers
-  │   ├── base_trainer.py - Abstract Base Class for Trainer
-  │   ├── trainer.py - Trainer for initial training
-  │   └── compression_trainer.py - Custom Trainer for Deep Compression pipeline
+  │   ├── lit_model.py - Lightning wrapper for models
+  │   ├── metrics.py - Trainer for initial training
+  │   └── trainer.py - Custom Trainer for Deep Compression pipeline
   │
   ├── logger/ - module for tensorboard visualization and logging
-  │   ├── visualization.py
   │   ├── logger.py
   │   └── logger_config.json
   │  
@@ -69,10 +67,10 @@
 ### Imagenette
 | Network              | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
 |----------------------|-------------|-------------|------------|------------------|
-| AlexNet Ref          | 20.80%      | 3.33%       | 61M        | -                |
-| AlexNet Pruned       |             |             |            |                  |
+| AlexNet Ref          | 19.87%      | -           | 57M        | -                |
+| AlexNet Pruned       | 20.82%      | -           | 9M         | **8X**           |
 | VGG16 Ref            | -           | -           | 61M        | -                |
-| VGG16 Pruned         |             |             |            |                  |
+| VGG16 Pruned         |             | -           |            |                  |
 
 ## Quantization
 

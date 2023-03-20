@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 import data as module_data
 
-import evaluation as module_metric
+import trainer.metrics as module_metric
 import models as module_arch
 from parse_config import ConfigParser
 
