@@ -8,14 +8,13 @@ from copy import deepcopy
 import numpy as np
 import torch
 import torch.nn.functional as F
-from pytorch_lightning import LightningModule, seed_everything, Trainer
+from pytorch_lightning import LightningModule, Trainer
 from torch import nn
-
 
 from parse_config import ConfigParser
 from trainer.lit_model import LitModel
 from trainer.trainer import get_trainer
-from utils import set_all_seeds
+from utils import set_all_seeds,set_deterministic
 
 import data as module_data
 import models as module_arch
@@ -27,7 +26,8 @@ import quantization as module_quantize
 CHECKPOINT_DIR = os.path.dirname(os.path.abspath(__file__)) + '/checkpoints'
 RUNS_DIR = os.path.dirname(os.path.abspath(__file__)) + '/runs'
 SEED = 42
-seed_everything(42, workers=True)
+set_all_seeds(42)
+set_deterministic()
 
 _MODULE_CONTAINERS = (LightningModule, nn.Sequential, nn.ModuleList, nn.ModuleDict)
 
@@ -64,7 +64,7 @@ def pruning_sensitivity_analysis(config, pruner, sparsities, name="weight"):
     model = LitModel(config, config.init_obj('arch', module_arch))
     if config.resume:
         checkpoint = torch.load(config.resume)
-        model.load_state_dict(checkpoint['state_dict'])
+        model.model.load_state_dict(checkpoint['state_dict'])
 
     current_modules = [m_name for m_name, m in model.model.named_modules() if
                        not isinstance(m, _MODULE_CONTAINERS) and hasattr(m, name)]
@@ -161,14 +161,14 @@ def quantization_sensitivity_analysis(trainer, bits, test_fn, train=True, logger
 
 
 def main(config):
-    sparsities = 1- np.logspace(-1.5,0,10)
+    sparsities = 1 - np.logspace(-2, 0, 20)
     pruner = module_prune.L1Unstructured
 
     sensitivities = pruning_sensitivity_analysis(config, pruner=pruner, sparsities=sparsities)
     fig = plot_sensitivities(sensitivities)
-    fig.savefig(config.save_dir / 'mnist_sensitivity_analysis_retrain.png')
+    fig.savefig(config.save_dir / f"{config['name'].lower()}_sensitivity_analysis.png")
 
-    sensitivities_to_csv(sensitivities, config.save_dir / 'mnist_sensitivity_analysis_retrain.csv')
+    sensitivities_to_csv(sensitivities, config.save_dir / f"{config['name'].lower()}sensitivity_analysis.csv")
 
 
 def plot_sensitivities(sensitivities, metric='val_accuracy'):
@@ -208,7 +208,7 @@ def sensitivities_to_csv(sensitivities, fname):
     with open(fname, 'w') as csv_file:
         writer = csv.writer(csv_file)
         # write the header
-        writer.writerow(['parameter', 'sparsity', 'top1', 'top5', 'loss'])
+        writer.writerow(['parameter', 'sparsity', 'loss', 'top1', 'top5'])
         for param_name, sensitivity in sensitivities.items():
             for sparsity, values in sensitivity.items():
                 writer.writerow([param_name] + [sparsity] + list(values.values()))
