@@ -1,6 +1,6 @@
-# Deep Compression
+[![PyTorch Lightning](https://img.shields.io/badge/PyTorch-Lightning-blueviolet)](#)
 
-![Lightning](https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white)
+# Deep Compression
 
 This repository contains an unofficial [Pytorch Lightning](https://lightning.ai/pages/open-source/) implementation of the paper "**Deep Compression**: Compressing Deep Neural Networks with pruning,trained quantization and Huffman coding"
 by Song Han et al. (https://arxiv.org/abs/1510.00149).
@@ -13,6 +13,25 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
 
 ## Table of contents
 
+<!-- TOC -->
+* [Deep Compression](#deep-compression)
+  * [Table of contents](#table-of-contents)
+  * [Requirements](#requirements)
+  * [Project Structure](#project-structure)
+  * [Usage](#usage)
+    * [Configuration file](#configuration-file)
+    * [Training](#training)
+    * [Testing](#testing)
+    * [Sensitivity analysis](#sensitivity-analysis)
+  * [Models](#models)
+  * [Pruning](#pruning)
+    * [MNIST](#mnist)
+    * [CIFAR-100](#cifar-100)
+    * [Imagenette](#imagenette)
+  * [Quantization](#quantization)
+  * [Huffman encoding](#huffman-encoding)
+* [Acknowledgments](#acknowledgments)
+<!-- TOC -->
 
 ## Requirements
   - pytorch
@@ -76,13 +95,93 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
   ```
 
 ## Usage
+
+### Configuration file
+All the experiments are handled by a configuration file in `.json` format:
+
+````json
+{
+    "name": "Mnist_LeNet300",
+    "n_gpu": 1,
+    "arch": {
+        "type": "LeNet300",
+        "args": {
+            "num_classes": 10,
+            "grayscale": true,
+            "dropout_rate": 0
+        }
+    },
+    "data_loader": {
+        "type": "MnistDataLoader",
+        "args": {
+            "data_dir": "data/",
+            "batch_size": 128,
+            "shuffle": true,
+            "validation_split": 0.1,
+            "num_workers": 6,
+            "resize": false
+        }
+    },
+    "optimizer": {
+        "type": "SGD",
+        "args": {
+            "lr": 1e-2,
+            "momentum": 0.9,
+            "weight_decay": 1e-3,
+            "nesterov": true
+        }
+    },
+    "loss": "cross_entropy",
+    "metrics": [
+        "accuracy",
+        "topk_accuracy"
+    ],
+    "trainer": {
+        "epochs": 60,
+        "save_dir": "runs/",
+        "verbosity": 1,
+        "monitor": "max val_accuracy",
+        "loggers": ["TensorBoard"],
+        "callbacks": {
+            "ModelCheckpoint": {
+                "save_top_k": 1,
+                "monitor": "val_accuracy",
+                "every_n_epochs":5,
+                "mode": "max"
+            },
+            "IterativePruning": {
+                "pruning_schedule": {
+                    "target_sparsity": 0.92,
+                    "start_epoch": 0,
+                    "prune_every": 5
+                },
+                "pruning_fn": "l1_threshold",
+                "parameter_names": ["weight"],
+                "amount": [0.5,0.7,0.5],
+                "use_global_unstructured": true,
+                "verbose": 2
+            },
+            "Quantization": {
+              "epoch": 40,
+              "quantization_fn": "density_quantization",
+              "parameter_names": ["weight"],
+              "filter_layers": ["Linear"],
+              "bits": 6,
+              "verbose": 2
+            }
+        }
+    }
+}
+
+
+````
 ### Training
-To train a new model from scratch
+To train a new model from scratch, use the command -c or --config followed by the path to a JSON configuration file
 ```sh
 $ python train.py -c config.json
 ```
 
-To resume a training
+To resume a training, use the command -r followed by the path to a Pytorch Lightning checkpoint. In the same directory it should also be placed the JSON configuration file of the trained model.
 ```sh
 $ python train.py -r path-to-checkpoint/checkpoint.ckpt
 ```
@@ -93,9 +192,18 @@ $ python test.py -r path-to-checkpoint/checkpoint.ckpt
 ```
 
 ### Sensitivity analysis
+
 ```sh
 $ python sensitivity.py -r path-to-checkpoint/checkpoint.ckpt
 ```
+
+## Models
+[models](models) folder contains the implementation of the following models:
+
+- LeNet-300 from the original LeNet [paper](http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf)
+- LeNet-5, in a modified, larger version which follows the one in the Deep Compression [paper](https://arxiv.org/abs/1510.00149)
+- AlexNet, which follows the Caffe implementation available the author's [repository](https://github.com/songhan/Deep-Compression-AlexNet)
+- VGG-16 
 
 ## Pruning
 Pruning is implemented as a callback, called during training by Pytorch Lightning's [Trainer](https://lightning.ai/docs/pytorch/latest/common/trainer.html).
@@ -104,11 +212,11 @@ The `IterativePruning` callback extends [ModelPruning](https://lightning.ai/docs
 - `pruning_fn`:  Function from torch.nn.utils.prune module or a PyTorch BasePruningMethod subclass. Can also be string e.g. “l1_unstructured”
 - `parameter_names`: List of parameter names to be pruned from the nn.Module. Can either be "weight" or "bias".
 - `parameters_to_prune`: List of tuples (nn.Module, "parameter_name_string"). If unspecified, retrieves all module in model having `parameter_names`.
-- `use_global_unstructured`: Whether to apply pruning globally on the model. If parameters_to_prune is provided, global unstructured will be restricted on them.
+- `use_global_unstructured`: Whether to apply pruning globally on the model. If `parameters_to_prune` is provided, global unstructured will be restricted on them.
 - `amount`: Quantity of parameters to prune. Can either be
-  - int specifying the exact amount of parameter to prune
-  - float specifying the percentage of parameters to prune
-  - List of int or float speciying the amount to prune in each module. The length of  This is allowed only if `use_global_unstructured=False`
+  - _int_ specifying the exact amount of parameter to prune
+  - _float_ specifying the percentage of parameters to prune
+  - List of _int_ or _float_ speciying the amount to prune in each module. The length of  This is allowed only if `use_global_unstructured=False`
 - `filter_layers`: List of strings, filters pruning only on layers of a specific class ("Linear","Conv2d" or both.)
 
 The `pruning_schedule` is provided as a dictionary in trainer's JSON configuration and allows the following arguments:
@@ -120,7 +228,6 @@ The `pruning_schedule` is provided as a dictionary in trainer's JSON configurati
 Performance of pruned models was evaluated on different datasets in different settings
 - One-shot pruning with retraining: prune a trained model, then retrain the weights to compensate the accuracy loss occurred during pruning
 - Iterative pruning: iteratively prune and retrain the model multiple times
-
 
 ### MNIST
 | Network                                    | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
@@ -154,15 +261,20 @@ The `Quantizer` callback implements abstract [Callback](https://lightning.ai/doc
 and allows to run vector quantization on Linear and Conv2d modules.
 
 Vector quantization is implemented in `BaseQuantizationMethod` class, a novel module inspired on existing pruning pipeline in torch.nn.utils.prune.
-This module takes care of performing a clustering of a parameter's weights and store it as a tensor of cluster centers and an index matrix.
+This module takes care of performing a clustering of parameter's weights and store it as a tensor of cluster centers and an index matrix.
+
 The initialization of the cluster centroids can be done in three different ways
 
-- Linear: choose linearly-spaced values between the minimum and maximum of weight magnitude
-- Density-based: 
-- Random/Forgy: randomly chooses values from the weight matrix.
+- **Linear**: choose linearly-spaced values between [_min_,_max_] of the original weights
+- **Density-based**: chooses the weights based on the density distribution. It linearly spaces the CDF of the weights in the y-axis, then finds the horizontal intersection with the CDF, and finally the  vertical intersection on the x-axis, which becomes the centroid. 
+- **Random/Forgy**: randomly chooses _k_ weights from the weight matrix.
 
-The callback calls the quantization function for each layer
-
+The callback calls the quantization function for each layer and accepts the following parameters:
+- `epoch`: an int indicating the epoch on which quantization is performed
+- `quantization_fn`: Function from [compression.quantization](compression.quantization) module, passed as a string. Available functions are: "density_quantization","linear_quantization","forgy_quantization"
+- `parameter_names`: List of parameter names to be quantized from the nn.Module. Can either be "weight" or "bias".
+- `filter_layers`: List of strings, filters pruning only on layers of a specific class ("Linear","Conv2d" or both.)
+- `bits`: an int indicating the number of bits used for quantization. The number of codebook weights will be 2**bits.
 
 | Network | Quantization type | Top-1 Error | Top-5 Error |
 |---------|-------------------|-------------|-------------|
