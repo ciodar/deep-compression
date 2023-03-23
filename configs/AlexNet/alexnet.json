@@ -4,13 +4,14 @@
     "arch": {
         "type": "AlexNet",
         "args": {
-            "num_classes": 10
+            "num_classes": 10,
+            "dropout_rate": 0.5
         }
     },
     "data_loader": {
-        "type": "ImagenetteDataLoader",
+        "type": "ImagenetDataLoader",
         "args": {
-            "data_dir": "data/imagenette2",
+            "data_dir": "data/imagenette2/train",
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.1,
@@ -51,38 +52,12 @@
                 "monitor": "val_accuracy",
                 "mode": "max"
             },
-            "IterativePruning": [
-                {
-                    "pruning_epochs": [
-                        0,10,25
-                    ],
-                    "pruning_fn": "l1_unstructured",
-                    "parameter_names": [
-                        "weight"
-                    ],
-                    "filter_layers": [
-                        "Conv2d"
-                    ],
-                    "amount": 0.5,
-                    "use_global_unstructured": true,
-                    "verbose": 2
-                },
-                {
-                    "pruning_epochs": [
-                        5,20,30
-                    ],
-                    "pruning_fn": "l1_unstructured",
-                    "parameter_names": [
-                        "weight"
-                    ],
-                    "filter_layers": [
-                        "Linear"
-                    ],
-                    "amount": 0.5,
-                    "use_global_unstructured": true,
-                    "verbose": 2
-                }
-            ]
+            "EarlyStopping": {
+                "monitor": "val_accuracy",
+                "mode": "max",
+                "patience": 5,
+                "min_delta": 0.00
+            }
         }
     }
 }

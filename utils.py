@@ -1,13 +1,15 @@
 import json
-import os, random
-from os import chdir
+import os
+import random
 from collections import OrderedDict
+from os import chdir
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-import matplotlib.pyplot as plt
+
 
 def set_all_seeds(seed):
     os.environ["PL_GLOBAL_SEED"] = str(seed)

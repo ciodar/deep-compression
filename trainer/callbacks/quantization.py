@@ -102,7 +102,7 @@ class Quantization(Callback):
 
             if self._apply_quantization:
                 compression = quantization.compression_stats(pl_module)
-                pl_module.log("compression", compression, pl_module.global_step)
+                pl_module.log("compression", compression)
 
     @staticmethod
     def sanitize_parameters_to_quantize(

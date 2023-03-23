@@ -18,7 +18,6 @@ from sklearn.cluster import KMeans
 
 log = logging.getLogger(__name__)
 
-
 # Quantization base class inspired on torch.nn.utils.BasePruningMethod
 class BaseQuantizationMethod(ABC):
     _tensor_name: str
@@ -194,8 +193,8 @@ def get_compression(module, name):
         attr = f"{name}_indices"
         q_idx = getattr(module, attr).numel()
         idx_bits = math.log2(weights)
-
-    return all_weights * weight_bits, weights * weight_bits + q_idx * idx_bits + nz_weights * diff_bits
+    # Note: compression formula in paper does not include the mask
+    return all_weights * weight_bits, weights * weight_bits + q_idx * idx_bits #+ nz_weights * diff_bits
 
 
 def compression_stats(model, name="weight"):

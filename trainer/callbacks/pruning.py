@@ -8,6 +8,8 @@ from pytorch_lightning.utilities.rank_zero import rank_zero_debug
 
 import compression
 from compression.pruning import sparsity_stats
+from models.alexnet import LinearWithAdjustableDropout
+
 
 class IterativePruning(ModelPruning):
     LAYER_TYPES = ("Linear", "Conv2d")
@@ -58,6 +60,8 @@ class IterativePruning(ModelPruning):
     def _apply_local_pruning(self, amount: Union[int, float, List[float]]):
         for i, (module, name) in enumerate(self._parameters_to_prune):
             self.pruning_fn(module, name=name, amount=self._amount[i])
+            if isinstance(module, LinearWithAdjustableDropout):
+                module.adjust_dropout_rate(name)
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: LightningModule) -> None:
         if self._prune_on_train_epoch_end:

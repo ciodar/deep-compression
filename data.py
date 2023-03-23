@@ -1,15 +1,26 @@
-import json
-import os, pathlib as pl
+import os
 
 import numpy as np
-from PIL import Image
-from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
-import torchvision
-import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import torch
+import torchvision.transforms as transforms
+from torch.utils.data import SubsetRandomSampler, DataLoader, Subset, Dataset
 
 DATA_DIR = os.path.dirname(os.path.abspath(__file__)) + '/data'
+
+
+class MyDataset(Dataset):
+    def __init__(self, subset, transform=None):
+        self.subset = subset
+        self.transform = transform
+
+    def __getitem__(self, index):
+        x, y = self.subset[index]
+        if self.transform:
+            x = self.transform(x)
+        return x, y
+
+    def __len__(self):
+        return len(self.subset)
 
 
 class BaseDataLoader(DataLoader):
@@ -109,34 +120,69 @@ class Cifar100DataLoader(BaseDataLoader):
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 
 
-class ImagenetteDataLoader(BaseDataLoader):
-    def __init__(self, batch_size, data_dir=os.path.join(DATA_DIR, 'imagenette2'), shuffle=True, validation_split=0.0,
-                 num_workers=1,
-                 training=True):
-        traindir = os.path.join(data_dir, 'train')
-        testdir = os.path.join(data_dir, 'val')
+class ImagenetDataLoader(BaseDataLoader):
+    def __init__(self, batch_size, data_dir, shuffle=True, validation_split=0.0,
+                 num_workers=1):
+        self.data_dir = data_dir
 
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
-        if training:
-            transform = transforms.Compose([
+
+        # Todo: define augmentation techniques, different for train and validation.
+        self.transform = {
+            'train': transforms.Compose([
                 transforms.Resize(256),
-                transforms.CenterCrop(224),
+                transforms.RandomCrop(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
-                normalize,
-            ])
-        else:
-            transform = transforms.Compose([
+                normalize
+            ]),
+            'val': transforms.Compose([
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
-                normalize,
+                normalize
             ])
+        }
 
-        self.dataset = datasets.ImageFolder(
-            traindir if training else testdir,
-            transform
+        dataset = datasets.ImageFolder(
+            data_dir,
+            transform=None
         )
+        self.n_samples = len(dataset)
+        self.train_dataset, self.valid_dataset = self._split_dataset(dataset, validation_split)
+        validation_split = 0.0
 
-        super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
+        super().__init__(self.train_dataset, batch_size, shuffle, validation_split, num_workers)
+
+    def _split_dataset(self, dataset, split):
+        if split == 0.0:
+            return None, None
+
+        idx_full = np.arange(self.n_samples)
+
+        np.random.shuffle(idx_full)
+
+        if isinstance(split, int):
+            assert split > 0
+            assert split < self.n_samples, "validation set size is configured to be larger than entire dataset."
+            len_valid = split
+        else:
+            len_valid = int(self.n_samples * split)
+
+        valid_idx = idx_full[0:len_valid]
+        train_idx = np.delete(idx_full, np.arange(0, len_valid))
+
+        train_dataset = MyDataset(Subset(dataset, train_idx), self.transform['train'])
+        valid_dataset = MyDataset(Subset(dataset, valid_idx), self.transform['val'])
+
+        self.n_samples = len(train_idx)
+
+        return train_dataset, valid_dataset
+
+    def split_validation(self):
+        if self.valid_dataset is None:
+            return None
+        else:
+            return DataLoader(self.valid_dataset, batch_size=self.init_kwargs['batch_size'],
+                              shuffle=False, num_workers=self.init_kwargs['num_workers'])

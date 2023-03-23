@@ -3,13 +3,9 @@ from typing import Tuple
 
 import torch
 from torch import nn
-from torch.nn.utils.prune import BasePruningMethod, L1Unstructured, is_pruned, Identity
-import operator
-
-from pytorch_lightning.callbacks import ModelPruning
+from torch.nn.utils.prune import BasePruningMethod
 
 log = logging.getLogger(__name__)
-
 
 # custom pruning
 class ThresholdPruning(BasePruningMethod):
@@ -27,8 +23,7 @@ class ThresholdPruning(BasePruningMethod):
 # TODO: iteratively prune and train
 
 def l1_threshold(module, name, amount):
-    ThresholdPruning.apply(module, name, amount=amount
-                           )
+    ThresholdPruning.apply(module, name, amount=amount)
     return module
 
 def get_pruned(module: nn.Module, name: str) -> Tuple[int, int]:
