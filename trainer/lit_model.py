@@ -36,9 +36,10 @@ class LitModel(lit.LightningModule):
     def on_validation_epoch_end(self):
         super().on_validation_epoch_end()
         # log model parameters
-        tensorboard = self.logger.experiment
-        for name, p in self.model.state_dict().items():
-            tensorboard.add_histogram(name, p, self.global_step)
+        if self.logger:
+            tensorboard = self.logger.experiment
+            for name, p in self.model.state_dict().items():
+                tensorboard.add_histogram(name, p, self.global_step)
 
     def configure_optimizers(self):
         trainable_params = filter(lambda p: p.requires_grad, self.parameters())

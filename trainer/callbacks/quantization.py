@@ -9,7 +9,7 @@ from pytorch_lightning.utilities.exceptions import MisconfigurationException
 from pytorch_lightning.callbacks import Callback
 
 import torch.nn as nn
-import quantization
+from compression import quantization
 
 log = logging.getLogger(__name__)
 
@@ -32,10 +32,14 @@ _MODULE_CONTAINERS = (LightningModule, nn.Sequential, nn.ModuleList, nn.ModuleDi
 
 class Quantization(Callback):
     PARAMETER_NAMES = ("weight", "bias")
-    def __init__(self, epoch, quantization_fn, parameters_to_quantize = None, parameter_names = None, bits: Union[int, List[int]]= None, apply_quantization: Union[bool, Callable[[int], bool]] = True, verbose: int=0):
+    LAYER_TYPES = ("Linear", "Conv2d")
+
+    def __init__(self, epoch, quantization_fn, parameters_to_quantize=None, parameter_names=None,
+                 bits: Union[int, List[int]] = None, filter_layers: Optional[List[str]] = None,
+                 apply_quantization: Union[bool, Callable[[int], bool]] = True, verbose: int = 0):
         super().__init__()
 
-        self._parameters_to_prune = parameters_to_quantize
+        self._parameters_to_quantize = parameters_to_quantize
         self._parameter_names = parameter_names or self.PARAMETER_NAMES
         self._global_kwargs = {}
         self._original_layers = None
@@ -48,18 +52,20 @@ class Quantization(Callback):
         self.bits = bits
         self._quantization_epoch = epoch
         self._quantize_on_train_epoch_end = False
+        self._filter_layers = filter_layers or self.LAYER_TYPES
 
         if verbose not in (0, 1, 2):
             raise MisconfigurationException("`verbose` must be any of (0, 1, 2)")
 
         self._verbose = verbose
 
-    def _create_quantization_fn(self, quantization_fn: str, **kwargs) -> Union[Callable, quantization.BaseQuantizationMethod]:
-        """
-        This function takes `pruning_fn`, a function name.
-        IF use_global_unstructured, pruning_fn will be resolved into its associated ``PyTorch BasePruningMethod``
-        ELSE, pruning_fn will be resolved into its function counterpart from `torch.nn.utils.prune`.
-        """
+    def filter_parameters_to_quantize(self, parameters_to_quantize=()):
+        parameters_to_prune = list(
+            filter(lambda p: p[0].__class__.__name__ in self._filter_layers, parameters_to_quantize))
+        return parameters_to_prune
+
+    def _create_quantization_fn(self, quantization_fn: str, **kwargs) -> Union[
+        Callable, quantization.BaseQuantizationMethod]:
 
         quantization_fn = _QUANTIZATION_FUNCTIONS[quantization_fn]
         # save the function __name__ now because partial does not include it
@@ -78,11 +84,11 @@ class Quantization(Callback):
             self.quantization_fn(module, name=name, bits=bits)
 
     def setup(self, trainer: "pl.Trainer", pl_module: LightningModule, stage: str) -> None:
-        parameters_to_quantize = self.sanitize_parameters_to_prune(
-            pl_module, self._parameters_to_prune, parameter_names=self._parameter_names
+        parameters_to_quantize = self.sanitize_parameters_to_quantize(
+            pl_module, self._parameters_to_quantize, parameter_names=self._parameter_names
         )
 
-        self._parameters_to_quantize = parameters_to_quantize
+        self._parameters_to_quantize = self.filter_parameters_to_quantize(parameters_to_quantize)
 
     def _run_quantization(self, current_epoch: int) -> None:
         self._apply_quantization = current_epoch == self._quantization_epoch
@@ -96,20 +102,21 @@ class Quantization(Callback):
 
             if self._apply_quantization:
                 compression = quantization.compression_stats(pl_module)
+                pl_module.log("compression", compression, pl_module.global_step)
 
     @staticmethod
-    def sanitize_parameters_to_prune(
+    def sanitize_parameters_to_quantize(
             pl_module: LightningModule,
             parameters_to_quantize: Optional[_PARAM_LIST] = None,
             parameter_names: Optional[List[str]] = None,
     ) -> _PARAM_LIST:
         """
-        This function is responsible of sanitizing ``parameters_to_prune`` and ``parameter_names``.
-        If ``parameters_to_prune is None``, it will be generated with all parameters of the model.
+        This function is responsible of sanitizing ``parameters_to_quantize`` and ``parameter_names``.
+        If ``parameters_to_quantize is None``, it will be generated with all parameters of the model.
         Raises:
             MisconfigurationException:
-                If ``parameters_to_prune`` doesn't exist in the model, or
-                if ``parameters_to_prune`` is neither a list of tuple nor ``None``.
+                If ``parameters_to_quantize`` doesn't exist in the model, or
+                if ``parameters_to_quantize`` is neither a list of tuple nor ``None``.
         """
         parameters = parameter_names or Quantization.PARAMETER_NAMES
 
@@ -138,8 +145,8 @@ class Quantization(Callback):
                 )
         else:
             raise MisconfigurationException(
-                "The provided `parameters_to_prune` should either be list of tuple"
-                " with 2 elements: (nn.Module, parameter_name_to_prune) or None"
+                "The provided `parameters_to_quantize` should either be list of tuple"
+                " with 2 elements: (nn.Module, parameter_name_to_quantize) or None"
             )
 
         return parameters_to_quantize
