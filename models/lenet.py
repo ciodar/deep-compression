@@ -54,3 +54,32 @@ class LeNet5(nn.Module):
         out = self.activation(self.fc1(out))
         out = self.fc2(out)
         return out
+
+class LeNet5L(nn.Module):
+    def __init__(self, num_classes, grayscale=True, dropout_rate=0):
+        super().__init__()
+
+        if grayscale:
+            in_channels = 1
+        else:
+            in_channels = 3
+
+        self.conv1 = nn.Conv2d(in_channels, 20, kernel_size=5, stride=1, padding=0)
+        self.conv2 = nn.Conv2d(20, 50, kernel_size=5, stride=1, padding=0)
+        self.fc1 = nn.Linear(50 * 5 * 5, 320)
+        self.fc2 = nn.Linear(320, num_classes)
+        self.dropout = nn.Dropout(dropout_rate)
+        # activation function for hidden layers
+        self.activation = F.relu
+
+    def forward(self, x):
+        out = self.activation(self.conv1(x))
+        out = F.max_pool2d(out, kernel_size=2, stride=2)
+        out = self.activation(self.conv2(out))
+        out = F.max_pool2d(out, kernel_size=2, stride=2)
+        out = out.reshape(out.size(0), -1)
+        out = self.dropout(out)
+        out = self.activation(self.fc1(out))
+        out = self.dropout(out)
+        out = self.fc2(out)
+        return out

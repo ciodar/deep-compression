@@ -37,42 +37,21 @@
     "trainer": {
         "epochs": -1,
         "save_dir": "runs/",
-        "verbosity": 1,
+        "verbosity": 2,
         "monitor": "max val_accuracy",
         "loggers": ["TensorBoard"],
         "callbacks": {
             "ModelCheckpoint": {
                 "save_top_k": 1,
                 "monitor": "val_accuracy",
-                "every_n_epochs":5,
+                "every_n_epochs":1,
                 "mode": "max"
             },
             "EarlyStopping": {
                 "monitor": "val_accuracy",
                 "mode": "max",
                 "patience": 5,
-                "min_delta": 0.01
-            },
-            "IterativePruning": {
-                "pruning_epochs": [
-                    5
-                ],
-                "pruning_fn": "l1_unstructured",
-                "parameter_names": [
-                    "weight"
-                ],
-                "amount": 0.5,
-                "use_global_unstructured": true,
-                "verbose": 2
-            },
-            "Quantization": {
-                "epoch": 20,
-                "quantization_fn": "density_quantization",
-                "parameter_names": [
-                    "weight"
-                ],
-                "bits": 6,
-                "verbose": 2
+                "min_delta": 0.00
             }
         }
     }
