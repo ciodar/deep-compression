@@ -1,39 +1,14 @@
 import json
-import pandas as pd
-import os, random
-from os import chdir
+import os
+import random
 from collections import OrderedDict
+from os import chdir
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-import matplotlib.pyplot as plt
-
-
-class MetricTracker:
-    def __init__(self, *keys, writer=None):
-        self.writer = writer
-        self._data = pd.DataFrame(index=keys, columns=['total', 'counts', 'average'])
-        self.reset()
-
-    def reset(self):
-        for col in self._data.columns:
-            self._data[col].values[:] = 0
-
-    def update(self, key, value, n=1):
-        if self.writer is not None:
-            self.writer.add_scalar(key, value)
-        self._data.total[key] += value * n
-        self._data.counts[key] += n
-        self._data.average[key] = self._data.total[key] / self._data.counts[key]
-
-    def avg(self, key):
-        return self._data.average[key]
-
-    def result(self):
-        return dict(self._data.average)
 
 
 def set_all_seeds(seed):
@@ -85,36 +60,6 @@ def plot_sparsity_matrix(model):
                 # ax = fig.add_subplot(1, num_kernels, k + 1, xticks=[], yticks=[])
                 # ax.set_title("layer {0}/kernel_{1}".format(name, k))
     # return fig
-
-
-def predict_with_probs(model, images):
-    output = model(images)
-    _, predictions_ = torch.max(output, 1)
-    predictions = np.squeeze(predictions_.cpu().numpy())
-    return predictions, [F.softmax(el, dim=0)[i].item() for i, el in zip(predictions, output)]
-
-
-def plot_classes_preds(model, images, labels, classes=None):
-    preds, probs = predict_with_probs(model, images)
-    # plot the images in the batch, along with predicted and true labels
-    fig = plt.figure()
-    for idx in np.arange(4):
-        ax = fig.add_subplot(1, 4, idx + 1, xticks=[], yticks=[])
-        imshow(images[idx].cpu().detach())
-        if classes:
-            ax.set_title("{0}, {1:.1f}%\n(label: {2})".format(
-                classes[preds[idx]],
-                probs[idx] * 100.0,
-                classes[labels[idx]]),
-                color=("green" if preds[idx] == labels[idx].item() else "red"))
-        else:
-            ax.set_title("{0}, {1:.1f}%\n(label: {2})".format(
-                preds[idx],
-                probs[idx] * 100.0,
-                labels[idx]),
-                color=("green" if preds[idx] == labels[idx].item() else "red"))
-    return fig
-
 
 def weight_histograms_conv2d(writer, step, weights, name):
     weights_shape = weights.shape
@@ -209,9 +154,7 @@ def write_json(content, fname):
 
 def make_paths_relative_to_root():
     """Always use the same, absolute (relative to root) paths
-
     which makes moving the notebooks around easier.
     """
     top_level = Path(__file__).parent
-
     chdir(top_level)

@@ -1,0 +1,58 @@
+{
+    "name": "Mnist_LeNet300",
+    "n_gpu": 1,
+    "arch": {
+        "type": "LeNet300",
+        "args": {
+            "num_classes": 10,
+            "grayscale": true,
+            "dropout_rate": 0
+        }
+    },
+    "data_loader": {
+        "type": "MnistDataLoader",
+        "args": {
+            "data_dir": "data/",
+            "batch_size": 128,
+            "shuffle": true,
+            "validation_split": 0.1,
+            "num_workers": 6,
+            "resize": false
+        }
+    },
+    "optimizer": {
+        "type": "SGD",
+        "args": {
+            "lr": 1e-2,
+            "momentum": 0.9,
+            "weight_decay": 1e-3,
+            "nesterov": true
+        }
+    },
+    "loss": "cross_entropy",
+    "metrics": [
+        "accuracy",
+        "topk_accuracy"
+    ],
+    "trainer": {
+        "epochs": -1,
+        "save_dir": "runs/",
+        "verbosity": 2,
+        "monitor": "max val_accuracy",
+        "loggers": ["TensorBoard"],
+        "callbacks": {
+            "ModelCheckpoint": {
+                "save_top_k": 1,
+                "monitor": "val_accuracy",
+                "every_n_epochs":1,
+                "mode": "max"
+            },
+            "EarlyStopping": {
+                "monitor": "val_accuracy",
+                "mode": "max",
+                "patience": 5,
+                "min_delta": 0.00
+            }
+        }
+    }
+}

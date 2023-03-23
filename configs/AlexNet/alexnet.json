@@ -1,0 +1,63 @@
+{
+    "name": "Imagenette_AlexNet",
+    "n_gpu": 1,
+    "arch": {
+        "type": "AlexNet",
+        "args": {
+            "num_classes": 10,
+            "dropout_rate": 0.5
+        }
+    },
+    "data_loader": {
+        "type": "ImagenetDataLoader",
+        "args": {
+            "data_dir": "data/imagenette2/train",
+            "batch_size": 128,
+            "shuffle": true,
+            "validation_split": 0.1,
+            "num_workers": 6
+        }
+    },
+    "optimizer": {
+        "type": "SGD",
+        "args": {
+            "lr": 1e-2,
+            "momentum": 0.9,
+            "weight_decay": 5e-4,
+            "nesterov": true
+        }
+    },
+    "loss": "cross_entropy",
+    "metrics": [
+        "accuracy",
+        "topk_accuracy"
+    ],
+    "lr_scheduler": {
+        "type": "ReduceLROnPlateau",
+        "args": {
+            "mode": "max",
+            "factor": 0.1
+        }
+    },
+    "trainer": {
+        "epochs": -1,
+        "save_dir": "runs/",
+        "verbosity": 1,
+        "monitor": "max val_accuracy",
+        "loggers": ["TensorBoard"],
+        "callbacks": {
+            "ModelCheckpoint":
+            {
+                "save_top_k": 1,
+                "monitor": "val_accuracy",
+                "mode": "max"
+            },
+            "EarlyStopping": {
+                "monitor": "val_accuracy",
+                "mode": "max",
+                "patience": 5,
+                "min_delta": 0.00
+            }
+        }
+    }
+}

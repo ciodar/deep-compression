@@ -1,115 +1,46 @@
-import numpy as np
 import torch
-from torchvision.utils import make_grid
+from abc import abstractmethod
+from numpy import inf
 
-from trainer.base_trainer import BaseTrainer
-from utils import MetricTracker
+import pytorch_lightning as lit
+
+import trainer.callbacks as module_callback
 
 
-class Trainer(BaseTrainer):
-    """
-    Trainer class
-    """
+def get_trainer(config):
+    cfg_trainer = config['trainer']
 
-    def __init__(self, model, criterion, metrics, optimizer, config, device,
-                 data_loader, valid_data_loader=None, lr_scheduler=None, len_epoch=None):
-        super().__init__(model, criterion, metrics, optimizer, config)
-        self.config = config
-        self.device = device
-        self.data_loader = data_loader
-        if len_epoch is None:
-            # epoch-based training
-            self.len_epoch = len(self.data_loader)
-        self.valid_data_loader = valid_data_loader
-        self.do_validation = self.valid_data_loader is not None
-        self.lr_scheduler = lr_scheduler
-        self.log_step = int(np.sqrt(data_loader.batch_size))
+    if torch.cuda.is_available():
+        accelerator, devices = "gpu", config['n_gpu']
+    else:
+        accelerator, devices = "auto", None
 
-        self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
-        self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns], writer=self.writer)
+    min_epochs = cfg_trainer.get('min_epochs', 0)
+    max_epochs = cfg_trainer.get('max_epochs', -1)
+    if cfg_trainer.get('enable_checkpointing', True):
+        default_root_dir = config.save_dir
+    else:
+        default_root_dir = None
 
-    def _train_epoch(self, epoch):
-        """
-        Training logic for an epoch
-        :param epoch: Integer, current training epoch.
-        :return: A log that contains average loss and metric in this epoch.
-        """
-        self.model.train()
-        self.train_metrics.reset()
-        for batch_idx, (data, target) in enumerate(self.data_loader):
-            data, target = data.to(self.device), target.to(self.device)
-
-            self.optimizer.zero_grad()
-            output = self.model(data)
-            loss = self.criterion(output, target)
-            loss.backward()
-            self.optimizer.step()
-
-            self.writer.set_step((epoch - 1) * self.len_epoch + batch_idx)
-            self.train_metrics.update('loss', loss.item())
-            for met in self.metric_ftns:
-                self.train_metrics.update(met.__name__, met(output, target))
-
-            if batch_idx % self.log_step == 0:
-                self.logger.debug('Train Epoch: {} {} Loss: {:.6f}'.format(
-                    epoch,
-                    self._progress(batch_idx),
-                    loss.item()))
-                # for name, p in self.model.named_parameters():
-                #     g = torch.nn.utils.clip_grad_norm_(p, torch.inf, norm_type=2.0, error_if_nonfinite=False)
-                #     self.writer.add_scalar(name + '_grad', g)
-
-                self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
-
-            if batch_idx == self.len_epoch:
-                break
-        log = self.train_metrics.result()
-
-        if self.do_validation:
-            val_log = self._valid_epoch(epoch)
-            log.update(**{'val_' + k: v for k, v in val_log.items()})
-
-        if self.lr_scheduler is not None:
-            if isinstance(self.lr_scheduler,torch.optim.lr_scheduler.ReduceLROnPlateau):
-                assert self.do_validation, "ReduceLROnPlateau needs validation. Please set do_validation=True."
-                self.lr_scheduler.step(val_log[self.mnt_metric[4:]])
+    callbacks = []
+    if 'callbacks' in cfg_trainer:
+        for cb, values in cfg_trainer['callbacks'].items():
+            if isinstance(values, list):
+                for args in values:
+                    callback = getattr(module_callback, cb)(**args)
+                    callbacks.append(callback)
             else:
-                self.lr_scheduler.step()
+                callback = getattr(module_callback, cb)(**values)
+                callbacks.append(callback)
+    return lit.Trainer(min_epochs=min_epochs, max_epochs=max_epochs, callbacks=callbacks, accelerator="auto",
+                       devices=devices
+                       , default_root_dir=default_root_dir)
 
-        return log
 
-    def _valid_epoch(self, epoch):
-        """
-        Validate after training an epoch
-        :param epoch: Integer, current training epoch.
-        :return: A log that contains information about validation
-        """
-        self.model.eval()
-        self.valid_metrics.reset()
-        with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                data, target = data.to(self.device), target.to(self.device)
+class CompressionTrainer(lit.Trainer):
+    def __init__(self, config, **kwargs):
+        self.config = config
+        super().__init__(**kwargs)
 
-                output = self.model(data)
-                loss = self.criterion(output, target)
-
-                self.writer.set_step((epoch - 1) * len(self.valid_data_loader) + batch_idx, 'valid')
-                self.valid_metrics.update('loss', loss.item())
-                for met in self.metric_ftns:
-                    self.valid_metrics.update(met.__name__, met(output, target))
-                self.writer.add_image('input', make_grid(data.cpu(), nrow=8, normalize=True))
-
-        # add histogram of model parameters to the tensorboard
-        for name, p in self.model.named_parameters():
-            self.writer.add_histogram(name, p, bins='auto')
-        return self.valid_metrics.result()
-
-    def _progress(self, batch_idx):
-        base = '[{}/{} ({:.0f}%)]'
-        if hasattr(self.data_loader, 'n_samples'):
-            current = batch_idx * self.data_loader.batch_size
-            total = self.data_loader.n_samples
-        else:
-            current = batch_idx
-            total = self.len_epoch
-        return base.format(current, total, 100.0 * current / total)
+    # def compute_pruning_amount(self, epoch):
+    #     if epoch in config['trainer']

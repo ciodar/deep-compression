@@ -1,0 +1,72 @@
+{
+    "name": "Mnist_LeNet300",
+    "n_gpu": 1,
+    "arch": {
+        "type": "LeNet300",
+        "args": {
+            "num_classes": 10,
+            "grayscale": true,
+            "dropout_rate": 0
+        }
+    },
+    "data_loader": {
+        "type": "MnistDataLoader",
+        "args": {
+            "data_dir": "data/",
+            "batch_size": 128,
+            "shuffle": true,
+            "validation_split": 0.1,
+            "num_workers": 6,
+            "resize": false
+        }
+    },
+    "optimizer": {
+        "type": "SGD",
+        "args": {
+            "lr": 1e-2,
+            "momentum": 0.9,
+            "weight_decay": 1e-3,
+            "nesterov": true
+        }
+    },
+    "loss": "cross_entropy",
+    "metrics": [
+        "accuracy",
+        "topk_accuracy"
+    ],
+    "trainer": {
+        "epochs": 60,
+        "save_dir": "runs/",
+        "verbosity": 1,
+        "monitor": "max val_accuracy",
+        "loggers": ["TensorBoard"],
+        "callbacks": {
+            "ModelCheckpoint": {
+                "save_top_k": 1,
+                "monitor": "val_accuracy",
+                "every_n_epochs":5,
+                "mode": "max"
+            },
+            "IterativePruning": {
+                "pruning_schedule": {
+                    "target_sparsity": 0.92,
+                    "start_epoch": 0,
+                    "prune_every": 5
+                },
+                "pruning_fn": "l1_threshold",
+                "parameter_names": ["weight"],
+                "amount": [0.5,0.7,0.5],
+                "use_global_unstructured": true,
+                "verbose": 2
+            },
+            "Quantization": {
+                "epoch": 40,
+                "quantization_fn": "density_quantization",
+                "parameter_names": ["weight"],
+                "filter_layers": ["Linear"],
+                "bits": 6,
+                "verbose": 2
+            }
+        }
+    }
+}
