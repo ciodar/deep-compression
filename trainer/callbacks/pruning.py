@@ -1,6 +1,6 @@
-from typing import List, Union, Optional, Callable, Dict, Any
+from typing import List, Union, Optional, Callable, Dict
 
-import torch.nn.utils.prune as pytorch_prune
+import torch
 from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import ModelPruning
 from pytorch_lightning.utilities.exceptions import MisconfigurationException
@@ -13,7 +13,6 @@ from models.alexnet import LinearWithAdjustableDropout
 
 class IterativePruning(ModelPruning):
     LAYER_TYPES = ("Linear", "Conv2d")
-
 
     def __init__(self, pruning_fn: Union[Callable, str], pruning_schedule: Dict,
                  amount: Union[int, float, List[int]] = None,
@@ -30,6 +29,7 @@ class IterativePruning(ModelPruning):
 
         self._pruning_schedule = pruning_schedule
         self._filter_layers = filter_layers or self.LAYER_TYPES
+        self._filter_layers = tuple(getattr(torch.nn, c) for c in self._filter_layers)
         self._amount = amount
 
         if use_global_unstructured and isinstance(amount, list):
@@ -55,7 +55,7 @@ class IterativePruning(ModelPruning):
 
     def filter_parameters_to_prune(self, parameters_to_prune=()):
         # filter modules based on type (Linear or Conv2d)
-        return list(filter(lambda p: p[0].__class__.__name__ in self._filter_layers, parameters_to_prune))
+        return list(filter(lambda p: isinstance(p[0], self._filter_layers), parameters_to_prune))
 
     def _apply_local_pruning(self, amount: Union[int, float, List[float]]):
         for i, (module, name) in enumerate(self._parameters_to_prune):

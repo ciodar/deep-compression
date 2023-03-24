@@ -26,7 +26,6 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
   * [Models](#models)
   * [Pruning](#pruning)
     * [MNIST](#mnist)
-    * [CIFAR-100](#cifar-100)
     * [Imagenette](#imagenette)
   * [Quantization](#quantization)
   * [Huffman encoding](#huffman-encoding)
@@ -43,6 +42,7 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
   - matplotlib
   - numpy
   - scipy
+  - scikit-learn
   - tqdm
   - tensorboard
 
@@ -214,9 +214,9 @@ The `IterativePruning` callback extends [ModelPruning](https://lightning.ai/docs
 - `parameters_to_prune`: List of tuples (nn.Module, "parameter_name_string"). If unspecified, retrieves all module in model having `parameter_names`.
 - `use_global_unstructured`: Whether to apply pruning globally on the model. If `parameters_to_prune` is provided, global unstructured will be restricted on them.
 - `amount`: Quantity of parameters to prune. Can either be
-  - _int_ specifying the exact amount of parameter to prune
-  - _float_ specifying the percentage of parameters to prune
-  - List of _int_ or _float_ speciying the amount to prune in each module. The length of  This is allowed only if `use_global_unstructured=False`
+  - int specifying the exact amount of parameter to prune
+  - float specifying the percentage of parameters to prune
+  - List of int or float speciying the amount to prune in each module. The length of  This is allowed only if `use_global_unstructured=False`
 - `filter_layers`: List of strings, filters pruning only on layers of a specific class ("Linear","Conv2d" or both.)
 
 The `pruning_schedule` is provided as a dictionary in trainer's JSON configuration and allows the following arguments:
@@ -239,20 +239,24 @@ Performance of pruned models was evaluated on different datasets in different se
 | LeNet-5 One-Shot Pruning w/ retrain        | 0.7%        | -           | **36K**    | **12X**          |
 | LeNet-5 Iterative Pruning w/ retrain       | 0.7%        | -           | **36K**    | **12X**          |
 
-### CIFAR-100
+[//]: # (### CIFAR-100)
 
-| Network        | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
-|----------------|-------------|-------------|------------|------------------|
-| LeNet-5 Ref    | 61.17%      | 31.55%      | 266K       | -                |
-| LeNet-5 Pruned | 61.89%      | 31.87%      | **50K**    | **11X**          |
+[//]: # ()
+[//]: # (| Network        | Top-1 Error | Top-5 Error | Parameters | Compression Rate |)
+
+[//]: # (|----------------|-------------|-------------|------------|------------------|)
+
+[//]: # (| LeNet-5 Ref    | 61.17%      | 31.55%      | 266K       | -                |)
+
+[//]: # (| LeNet-5 Pruned | 61.89%      | 31.87%      | **50K**    | **11X**          |)
 
 ### Imagenette
-| Network              | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
-|----------------------|-------------|-------------|------------|------------------|
-| AlexNet Ref          | 19.87%      | -           | 57M        | -                |
-| AlexNet Pruned       | 20.82%      | -           | 9M         | **8X**           |
-| VGG16 Ref            | -           | -           | 61M        | -                |
-| VGG16 Pruned         |             | -           |            |                  |
+| Network                             | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
+|-------------------------------------|-------------|-------------|------------|------------------|
+| AlexNet Ref                         | 22.94%      | -           | 58M        | -                |
+| AlexNet One-shot pruning w/ retrain | 19.13%      | -           | 6M         | **9X**           |
+| VGG16 Ref                           | -           | -           | 61M        | -                |
+| VGG16 Pruned                        |             | -           |            |                  |
 
 ## Quantization
 Quantization is implemented with `Quantizer`, a custom callback called by Pytorch Lightning's [Trainer](https://lightning.ai/docs/pytorch/latest/common/trainer.html).
@@ -265,13 +269,13 @@ This module takes care of performing a clustering of parameter's weights and sto
 
 The initialization of the cluster centroids can be done in three different ways
 
-- **Linear**: choose linearly-spaced values between [_min_,_max_] of the original weights
+- **Linear**: choose linearly-spaced values between [ _min_ , _max_ ] of the original weights
 - **Density-based**: chooses the weights based on the density distribution. It linearly spaces the CDF of the weights in the y-axis, then finds the horizontal intersection with the CDF, and finally the  vertical intersection on the x-axis, which becomes the centroid. 
 - **Random/Forgy**: randomly chooses _k_ weights from the weight matrix.
 
 The callback calls the quantization function for each layer and accepts the following parameters:
 - `epoch`: an int indicating the epoch on which quantization is performed
-- `quantization_fn`: Function from [compression.quantization](compression.quantization) module, passed as a string. Available functions are: "density_quantization","linear_quantization","forgy_quantization"
+- `quantization_fn`: Function from [compression.quantization](compression/quantization.py) module, passed as a string. Available functions are: "density_quantization","linear_quantization","forgy_quantization"
 - `parameter_names`: List of parameter names to be quantized from the nn.Module. Can either be "weight" or "bias".
 - `filter_layers`: List of strings, filters pruning only on layers of a specific class ("Linear","Conv2d" or both.)
 - `bits`: an int indicating the number of bits used for quantization. The number of codebook weights will be 2**bits.

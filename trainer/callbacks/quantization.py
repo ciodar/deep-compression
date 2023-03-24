@@ -3,6 +3,7 @@ from functools import partial
 from typing import Union, Callable, List, Optional, Tuple, Sequence
 
 import pytorch_lightning as pl
+import torch
 from lightning_utilities.core.rank_zero import rank_zero_debug
 from pytorch_lightning import LightningModule
 from pytorch_lightning.utilities.exceptions import MisconfigurationException
@@ -53,6 +54,7 @@ class Quantization(Callback):
         self._quantization_epoch = epoch
         self._quantize_on_train_epoch_end = False
         self._filter_layers = filter_layers or self.LAYER_TYPES
+        self._filter_layers = tuple(getattr(torch.nn, c) for c in self._filter_layers)
 
         if verbose not in (0, 1, 2):
             raise MisconfigurationException("`verbose` must be any of (0, 1, 2)")
@@ -60,9 +62,7 @@ class Quantization(Callback):
         self._verbose = verbose
 
     def filter_parameters_to_quantize(self, parameters_to_quantize=()):
-        parameters_to_prune = list(
-            filter(lambda p: p[0].__class__.__name__ in self._filter_layers, parameters_to_quantize))
-        return parameters_to_prune
+        return list(filter(lambda p: isinstance(p[0], self._filter_layers), parameters_to_quantize))
 
     def _create_quantization_fn(self, quantization_fn: str, **kwargs) -> Union[
         Callable, quantization.BaseQuantizationMethod]:

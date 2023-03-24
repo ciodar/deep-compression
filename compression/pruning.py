@@ -7,6 +7,7 @@ from torch.nn.utils.prune import BasePruningMethod
 
 log = logging.getLogger(__name__)
 
+
 # custom pruning
 class ThresholdPruning(BasePruningMethod):
     PRUNING_TYPE = "unstructured"
@@ -26,6 +27,7 @@ def l1_threshold(module, name, amount):
     ThresholdPruning.apply(module, name, amount=amount)
     return module
 
+
 def get_pruned(module: nn.Module, name: str) -> Tuple[int, int]:
     attr = f"{name}_mask"
     if not hasattr(module, attr):
@@ -35,7 +37,6 @@ def get_pruned(module: nn.Module, name: str) -> Tuple[int, int]:
 
 
 def sparsity_stats(model, name="weight"):
-
     diff_bits = 5
 
     sparsity_dict = {n: get_pruned(m, name) for n, m in model.named_modules() if getattr(m, name, None) is not None}
