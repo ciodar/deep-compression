@@ -9,16 +9,16 @@ It provides an implementation of the three core methods described in the paper:
 - Quantization
 - Huffman Encoding
 
-This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** exam at University of Florence.
-
 | Network                  | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
 |--------------------------|-------------|-------------|------------|------------------|
 | LeNet-300-100 Ref        | 1.57%       | -           | 1070KB     | -                |
-| LeNet-300-100 Compressed | 1.57%       | -           |            | **36X**          |
+| LeNet-300-100 Compressed | 1.57%       | -           | 30KB       | **36X**          |
 | LeNet-5 Ref              | 0.7%        | -           | 1720KB     | -                |
-| LeNet-5 Compressed       | 0.7%        | -           |            |          |
+| LeNet-5 Compressed       | 0.7%        | -           | 44 KB      | **39X**          |
 | AlexNet Ref              | 22.94%      | -           | 230MB      | -                |
 | AlexNet Compressed       | 17.5%       | -           | 7.5MB      | **31X**          |
+
+This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** exam at University of Florence.
 
 ## Table of contents
 

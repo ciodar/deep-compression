@@ -2,6 +2,7 @@
 # project runs output and checkpoints
 /runs/
 /assets/
+notebooks/*.ipynb_checkpoints
 
 config.json
 
