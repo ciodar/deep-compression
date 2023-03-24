@@ -176,7 +176,7 @@ def get_compression(module, name):
     # bits encoding weights
     weight_bits = 32
     # bits encoding the index difference in pruning mask
-    diff_bits = 5
+    diff_bits = 4
 
     all_weights = getattr(module, name).numel()
     weights = all_weights
@@ -185,7 +185,7 @@ def get_compression(module, name):
     if prune.is_pruned(module):
         attr = f"{name}_mask"
         mask = getattr(module, attr)
-        weights = (mask == 0).sum().item()
+        weights = (mask != 0).sum().item()
         nz_weights = weights
     if is_quantized(module):
         attr = f"{name}_centers"
@@ -194,7 +194,7 @@ def get_compression(module, name):
         q_idx = getattr(module, attr).numel()
         idx_bits = math.log2(weights)
     # Note: compression formula in paper does not include the mask
-    return all_weights * weight_bits, weights * weight_bits + q_idx * idx_bits #+ nz_weights * diff_bits
+    return all_weights * weight_bits, weights * weight_bits + q_idx * idx_bits + nz_weights * diff_bits
 
 
 def compression_stats(model, name="weight"):
