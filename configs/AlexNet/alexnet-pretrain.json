@@ -1,23 +1,21 @@
 {
-    "name": "Mnist_LeNet5",
+    "name": "Imagenette_AlexNet",
     "n_gpu": 1,
     "arch": {
-        "type": "LeNet5",
+        "type": "AlexNet",
         "args": {
             "num_classes": 10,
-            "grayscale": true,
-            "dropout_rate": 0
+            "dropout_rate": 0.5
         }
     },
     "data_loader": {
-        "type": "MnistDataLoader",
+        "type": "ImagenetDataLoader",
         "args": {
-            "data_dir": "data/",
+            "data_dir": "data/imagenette2/train",
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.1,
-            "num_workers": 6,
-            "resize": true
+            "num_workers": 6
         }
     },
     "optimizer": {
@@ -25,7 +23,7 @@
         "args": {
             "lr": 1e-2,
             "momentum": 0.9,
-            "weight_decay": 1e-3,
+            "weight_decay": 5e-4,
             "nesterov": true
         }
     },
@@ -34,8 +32,15 @@
         "accuracy",
         "topk_accuracy"
     ],
+    "lr_scheduler": {
+        "type": "ReduceLROnPlateau",
+        "args": {
+            "mode": "max",
+            "factor": 0.1
+        }
+    },
     "trainer": {
-        "epochs": 60,
+        "epochs": -1,
         "save_dir": "runs/",
         "verbosity": 1,
         "monitor": "max val_accuracy",
@@ -47,13 +52,11 @@
                 "monitor": "val_accuracy",
                 "mode": "max"
             },
-            "Quantization":
-            {
-                "epoch": 1,
-                "quantization_fn": "density_quantization",
-                "parameter_names": ["weight"],
-                "amount": 6,
-                "verbose": 2
+            "EarlyStopping": {
+                "monitor": "val_accuracy",
+                "mode": "max",
+                "patience": 5,
+                "min_delta": 0.00
             }
         }
     }

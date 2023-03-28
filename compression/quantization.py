@@ -4,6 +4,8 @@ import os
 from abc import ABC, abstractmethod
 from typing import Tuple
 
+from compression.huffman_encoding import HuffmanEncode
+
 # suppress Kmeans warning of memory leak in Windows
 os.environ['OMP_NUM_THREADS'] = "1"
 
@@ -13,10 +15,11 @@ import torch.nn.functional as F
 import torch.nn.utils.prune as prune
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, csr_array
 from sklearn.cluster import KMeans
 
 log = logging.getLogger(__name__)
+
 
 # Quantization base class inspired on torch.nn.utils.BasePruningMethod
 class BaseQuantizationMethod(ABC):
@@ -47,7 +50,7 @@ class BaseQuantizationMethod(ABC):
         weights = F.embedding(indices, centers).squeeze()
         ## debugging
         # weights.register_hook(print)
-        if hasattr(module, self._tensor_name + '_mask'):
+        if prune.is_pruned(module):
             mask = getattr(module, self._tensor_name + '_mask')
             mat = mask.detach().flatten()
             mat[torch.argwhere(mat)] = weights.view(-1, 1)
@@ -68,6 +71,7 @@ class BaseQuantizationMethod(ABC):
         # flatten weights to accommodate conv and fc layers
         mat = param.cpu().view(-1, 1)
 
+        # assume it is a sparse matrix, avoid to encode zeros since they are handled by pruning reparameterization
         mat = csr_matrix(mat)
         mat = mat.data
         if mat.shape[0] < 2 ** bits:
@@ -103,6 +107,30 @@ class BaseQuantizationMethod(ABC):
         # compute the function before every forward() (compile by run)
         module.register_forward_pre_hook(method)
         # print("Compression rate for layer %s: %.1f" % compression_rate(module,name,bits))
+
+    def remove(self, module):
+        r"""Removes the quantization reparameterization from a module. The pruned
+        parameter named ``name`` remains permanently quantized, and the parameter
+        named  and ``name+'_centers'`` is removed from the parameter list. Similarly,
+        the buffer named ``name+'_indices'`` is removed from the buffers.
+        """
+        # before removing quantization from a tensor, it has to have been applied
+        assert (
+                self._tensor_name is not None
+        ), "Module {} has to be quantized\
+                    before quantization can be removed".format(
+            module
+        )  # this gets set in apply()
+
+        # to update module[name] to latest trained weights
+        weight = self.lookup_weights(module)  # masked weights
+
+        # delete and reset
+        if hasattr(module, self._tensor_name):
+            delattr(module, self._tensor_name)
+        del module._parameters[self._tensor_name + "_centers"]
+        del module._buffers[self._tensor_name + "_indices"]
+        module.register_parameter(self._tensor_name, weight.data)
 
 
 class LinearQuantizationMethod(BaseQuantizationMethod):
@@ -172,37 +200,50 @@ def is_quantized(module):
     return False
 
 
-def get_compression(module, name):
+def get_compression(module, name, idx_bits, huffman_encoding=False):
     # bits encoding weights
-    weight_bits = 32
-    # bits encoding the index difference in pruning mask
-    diff_bits = 4
+    float32_bits = 32
 
     all_weights = getattr(module, name).numel()
-    weights = all_weights
-    q_idx, nz_weights, idx_bits = 0, 0, 0
+    n_weights = all_weights
+    p_idx, q_idx, idx_size = 0, 0, 0
 
     if prune.is_pruned(module):
         attr = f"{name}_mask"
-        mask = getattr(module, attr)
-        weights = (mask != 0).sum().item()
-        nz_weights = weights
+        mask = csr_array(getattr(module, attr).cpu().view(-1))
+        n_weights = mask.getnnz()
+        if huffman_encoding:
+            # use index difference of csr matrix
+            idx_diff = np.diff(mask.indices, prepend=mask.indices[0].astype(np.int8))
+            # store overhead of adding placeholder zeros, then consider only indices below 2**idx_bits
+            overhead = sum(map(lambda x: x // 2 ** idx_bits, idx_diff[idx_diff > 2 ** idx_bits]))
+            idx_diff = idx_diff[idx_diff < 2 ** idx_bits]
+            p_idx, avg_bits = HuffmanEncode.encode(idx_diff, bits=idx_bits)
+            p_idx += overhead
+            log.info(f" before Huffman coding: {n_weights*idx_bits:.0f} | after: {p_idx + overhead} | overhead: {overhead:.0f} | average bits: {avg_bits:.0f}")
+        else:
+            p_idx = n_weights * idx_bits
     if is_quantized(module):
         attr = f"{name}_centers"
-        weights = getattr(module, attr).numel()
+        n_weights = getattr(module, attr).numel()
         attr = f"{name}_indices"
-        q_idx = getattr(module, attr).numel()
-        idx_bits = math.log2(weights)
+        idx = getattr(module, attr).view(-1)
+        weight_bits = math.log2(n_weights)
+        q_idx = idx.numel() * weight_bits
+        if huffman_encoding:
+            # use index difference of csr matrix
+            q_idx, _ = HuffmanEncode.encode(idx.detach().cpu().numpy(), bits=weight_bits)
     # Note: compression formula in paper does not include the mask
-    return all_weights * weight_bits, weights * weight_bits + q_idx * idx_bits + nz_weights * diff_bits
+    return all_weights * float32_bits, n_weights * float32_bits + p_idx + q_idx
 
 
-def compression_stats(model, name="weight"):
-    weight_bits = 32
-
-    compression_dict = {n: get_compression(m, name) for n, m in model.named_modules() if
-                        getattr(m, name, None) is not None}
+def compression_stats(model, name="weight", idx_bits=5, huffman_encoding=False):
     log.info(f"Compression stats of `{model.__class__.__name__}` - `{name}`:")
+    compression_dict = {
+        n: get_compression(m, name, idx_bits=idx_bits, huffman_encoding=huffman_encoding) for
+        n, m in model.named_modules() if
+        getattr(m, name, None) is not None}
+
     for name, (n, d) in compression_dict.items():
         cr = n / d
         log.info(f"  Layer {name}: compression rate {1 / cr:.2%} ({cr:.1f}X) ")

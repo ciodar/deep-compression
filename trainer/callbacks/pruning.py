@@ -17,6 +17,7 @@ class IterativePruning(ModelPruning):
     def __init__(self, pruning_fn: Union[Callable, str], pruning_schedule: Dict,
                  amount: Union[int, float, List[int]] = None,
                  filter_layers: Optional[List[str]] = None, use_global_unstructured: bool = True,
+                 huffman_encode: bool = False,
                  **kwargs):
         self._use_global_unstructured = use_global_unstructured
         # custom pruning function
@@ -31,6 +32,7 @@ class IterativePruning(ModelPruning):
         self._filter_layers = filter_layers or self.LAYER_TYPES
         self._filter_layers = tuple(getattr(torch.nn, c) for c in self._filter_layers)
         self._amount = amount
+        self._huffman_encode = huffman_encode
 
         if use_global_unstructured and isinstance(amount, list):
             raise MisconfigurationException(

@@ -4,8 +4,8 @@
     "arch": {
         "type": "LeNet5L",
         "args": {
-            "num_classes": 100,
-            "grayscale": false,
+            "num_classes": 10,
+            "grayscale": true,
             "dropout_rate": 0
         }
     },
@@ -16,7 +16,8 @@
             "batch_size": 128,
             "shuffle": true,
             "validation_split": 0.1,
-            "num_workers": 6
+            "num_workers": 6,
+            "resize": true
         }
     },
     "optimizer": {
@@ -24,8 +25,8 @@
         "args": {
             "lr": 1e-2,
             "momentum": 0.9,
-            "weight_decay": 5e-4,
-            "nesterov": false
+            "weight_decay": 1e-3,
+            "nesterov": true
         }
     },
     "loss": "cross_entropy",
@@ -34,7 +35,7 @@
         "topk_accuracy"
     ],
     "trainer": {
-        "min_epochs": 15,
+        "min_epochs": 20,
         "save_dir": "runs/",
         "verbosity": 1,
         "monitor": "max val_accuracy",
@@ -43,7 +44,7 @@
             "ModelCheckpoint": {
                 "save_top_k": 1,
                 "monitor": "val_accuracy",
-                "every_n_epochs":1,
+                "every_n_epochs":5,
                 "mode": "max"
             },
             "EarlyStopping": {
@@ -51,7 +52,36 @@
                 "mode": "max",
                 "patience": 5,
                 "min_delta": 0.00
-            }
+            },
+            "IterativePruning": {
+                "pruning_schedule": {
+                "epoch": 0
+                },
+                "pruning_fn": "l1_unstructured",
+                "parameter_names": [
+                    "weight"
+                ],
+                "amount": 0.5,
+                "use_global_unstructured": true,
+                "verbose": 2
+            },
+            "Quantization": [{
+                "epoch": 20,
+                "quantization_fn": "density_quantization",
+                "parameter_names": ["weight"],
+                "filter_layers": ["Linear"],
+                "bits": 5,
+                "verbose": 1,
+                "huffman_encode": true
+            },{
+                "epoch": 20,
+                "quantization_fn": "density_quantization",
+                "parameter_names": ["weight"],
+                "filter_layers": ["Conv2d"],
+                "bits": 8,
+                "verbose": 1,
+                "huffman_encode": true
+            }]
         }
     }
 }

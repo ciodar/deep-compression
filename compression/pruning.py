@@ -7,7 +7,6 @@ from torch.nn.utils.prune import BasePruningMethod
 
 log = logging.getLogger(__name__)
 
-
 # custom pruning
 class ThresholdPruning(BasePruningMethod):
     PRUNING_TYPE = "unstructured"

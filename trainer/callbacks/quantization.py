@@ -10,6 +10,8 @@ from pytorch_lightning.utilities.exceptions import MisconfigurationException
 from pytorch_lightning.callbacks import Callback
 
 import torch.nn as nn
+
+import compression.quantization
 from compression import quantization
 
 log = logging.getLogger(__name__)
@@ -37,7 +39,8 @@ class Quantization(Callback):
 
     def __init__(self, epoch, quantization_fn, parameters_to_quantize=None, parameter_names=None,
                  bits: Union[int, List[int]] = None, filter_layers: Optional[List[str]] = None,
-                 apply_quantization: Union[bool, Callable[[int], bool]] = True, verbose: int = 0):
+                 huffman_encode: bool = False, apply_quantization: Union[bool, Callable[[int], bool]] = True
+                 , verbose: int = 0):
         super().__init__()
 
         self._parameters_to_quantize = parameters_to_quantize
@@ -55,6 +58,7 @@ class Quantization(Callback):
         self._quantize_on_train_epoch_end = False
         self._filter_layers = filter_layers or self.LAYER_TYPES
         self._filter_layers = tuple(getattr(torch.nn, c) for c in self._filter_layers)
+        self._huffman_encode = huffman_encode
 
         if verbose not in (0, 1, 2):
             raise MisconfigurationException("`verbose` must be any of (0, 1, 2)")
@@ -95,14 +99,26 @@ class Quantization(Callback):
         if self._apply_quantization:
             self.apply_quantization(self.bits)
 
+    def make_quantization_permanent(self, module: nn.Module) -> None:
+        for _, module in module.named_modules():
+            for k in list(module._forward_pre_hooks):
+                hook = module._forward_pre_hooks[k]
+                if isinstance(hook, compression.quantization.BaseQuantizationMethod):
+                    hook.remove(module)
+                    del module._forward_pre_hooks[k]
+
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: LightningModule) -> None:
         if not trainer.sanity_checking and not self._quantize_on_train_epoch_end:
             rank_zero_debug("`Quantization.on_validation_epoch_end`. Applying quantization")
             self._run_quantization(pl_module.current_epoch)
 
             if self._apply_quantization:
-                compression = quantization.compression_stats(pl_module)
+                # TODO: move idx_bits to configuration
+                compression = quantization.compression_stats(pl_module, idx_bits=4,
+                                                             huffman_encoding=self._huffman_encode)
                 pl_module.log("compression", compression)
+
+    # def on_fit_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
 
     @staticmethod
     def sanitize_parameters_to_quantize(
@@ -148,5 +164,4 @@ class Quantization(Callback):
                 "The provided `parameters_to_quantize` should either be list of tuple"
                 " with 2 elements: (nn.Module, parameter_name_to_quantize) or None"
             )
-
         return parameters_to_quantize

@@ -35,7 +35,7 @@
         "topk_accuracy"
     ],
     "trainer": {
-        "epochs": 60,
+        "min_epochs": 20,
         "save_dir": "runs/",
         "verbosity": 1,
         "monitor": "max val_accuracy",
@@ -49,23 +49,23 @@
             },
             "IterativePruning": {
                 "pruning_schedule": {
-                    "target_sparsity": 0.92,
-                    "start_epoch": 0,
-                    "prune_every": 5
+                    "target_sparsity": 0.9,
+                    "start_epoch": 0
                 },
-                "pruning_fn": "l1_threshold",
+                "pruning_fn": "l1_unstructured",
                 "parameter_names": ["weight"],
-                "amount": [0.5,0.7,0.5],
-                "use_global_unstructured": true,
+                "amount": [0.92,0.91,0.74],
+                "use_global_unstructured": false,
                 "verbose": 2
             },
             "Quantization": {
-                "epoch": 40,
+                "epoch": 15,
                 "quantization_fn": "density_quantization",
                 "parameter_names": ["weight"],
                 "filter_layers": ["Linear"],
                 "bits": 6,
-                "verbose": 2
+                "verbose": 2,
+                "huffman_encode": true
             }
         }
     }

@@ -2,21 +2,22 @@
 
 # Deep Compression
 
-This repository contains an unofficial [Pytorch Lightning](https://lightning.ai/pages/open-source/) implementation of the paper "**Deep Compression**: Compressing Deep Neural Networks with pruning,trained quantization and Huffman coding"
-by Song Han et al. (https://arxiv.org/abs/1510.00149).
+This repository contains an unofficial [Pytorch Lightning](https://lightning.ai/pages/open-source/) 
+implementation of the paper "**Deep Compression**: Compressing Deep Neural Networks with pruning,trained quantization and Huffman coding" by Song Han et al. (https://arxiv.org/abs/1510.00149).
 It provides an implementation of the three core methods described in the paper:
+
 - Pruning
 - Quantization
 - Huffman Encoding
 
-| Network                  | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
-|--------------------------|-------------|-------------|------------|------------------|
-| LeNet-300-100 Ref        | 1.57%       | -           | 1070KB     | -                |
-| LeNet-300-100 Compressed | 1.57%       | -           | 30KB       | **36X**          |
-| LeNet-5 Ref              | 0.7%        | -           | 1720KB     | -                |
-| LeNet-5 Compressed       | 0.7%        | -           | 44 KB      | **39X**          |
-| AlexNet Ref              | 22.94%      | -           | 230MB      | -                |
-| AlexNet Compressed       | 17.5%       | -           | 7.5MB      | **31X**          |
+| Network                  | Top-1 Error | Compression Rate |
+|--------------------------|-------------|------------------|
+| LeNet-300-100 Ref        | 1.57%       | -                |
+| LeNet-300-100 Compressed | 1.57%       | **41X**          |
+| LeNet-5 Ref              | 0.7%        | -                |
+| LeNet-5 Compressed       | 0.8%        | **43X**          |
+| AlexNet Ref              | 22.94%      | -                |
+| AlexNet Compressed       | 17.5%       | **31X**          |
 
 This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** exam at University of Florence.
 
@@ -61,6 +62,11 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
   │
   ├── train.py - main script to start training
   ├── test.py - evaluation of trained model 
+  │
+  ├── compression/ - directory containing all the compression logic
+  │   ├── pruning.py - implementation of ThresholdPruning and a calculation of 
+  │   ├── quantization.py - DataLoader for MNIST
+  │   └── huffman_encoding.py - DataLoader for CIFAR 100
   │
   ├── configs/ - directory of saved model configurations for various datasets and models
   ├── config.json - default working configuration file for training
@@ -146,7 +152,7 @@ All the experiments are handled by a configuration file in `.json` format:
         "topk_accuracy"
     ],
     "trainer": {
-        "epochs": 60,
+        "max_epochs": 60,
         "save_dir": "runs/",
         "verbosity": 1,
         "monitor": "max val_accuracy",
@@ -190,7 +196,8 @@ To train a new model from scratch, use the command -c or --config followed by th
 $ python train.py -c config.json
 ```
 
-To resume a training, use the command -r followed by the path to a Pytorch Lightning checkpoint. In the same directory it should also be placed the JSON configuration file of the trained model.
+To resume a training, use the command -r followed by the path to a Pytorch Lightning checkpoint. 
+In the same directory it should also be placed the JSON configuration file of the trained model.
 ```sh
 $ python train.py -r path-to-checkpoint/checkpoint.ckpt
 ```
@@ -289,20 +296,74 @@ The callback calls the quantization function for each layer and accepts the foll
 - `filter_layers`: List of strings, filters pruning only on layers of a specific class ("Linear","Conv2d" or both.)
 - `bits`: an int indicating the number of bits used for quantization. The number of codebook weights will be 2**bits.
 
-| Network | Quantization type | Top-1 Error | Top-5 Error |
-|---------|-------------------|-------------|-------------|
-| LeNet-5 | Forgy             | 61.27%      | 30.25%      |
-| LeNet-5 | Density-based     |             |             |
-| LeNet-5 | Linear            | -           | -           |
-| AlexNet | Forgy             |             |             |
-| AlexNet | Density-based     |             |             |
-| AlexNet | Linear            | -           | -           |
-| VGG-16  | Forgy             |             |             |
-| VGG-16  | Density-based     |             |             |
-| VGG-16  | Linear            | -           | -           |
+### MNIST
+
+#### LeNet-300
+
+| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
+|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
+| fc1       | 235K      | 8%            | 6                 | 5.0                 | 5                | 3.3                | 3.3                 | 2.21%                 |
+| fc2       | 30K       | 9%            | 6                 | 5.4                 | 5                | 4.0                | 4.0                 | 2.91%                 |
+| fc3       | 1K        | 26%           | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
+| **Total** | 266K      | 26%           | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
+
+#### LeNet-5
+
+| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
+|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
+| conv1     | 0.5K      | 66%           | 6                 | 5.0                 | 5                | 3.3                | 3.3                 | 2.21%                 |
+| conv2     | 25K       | 12%           | 6                 | 5.4                 | 5                | 4.0                | 4.0                 | 2.91%                 |
+| fc1       | 400K      | 92%           | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
+| fc2       | 3K        | 81%           | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
+| **Total** | 429K      | 8% (12X)      | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
+
+
+### Imagenette
+
+#### AlexNet
+
+| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
+|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
+| conv1     | %         | 84%           | 8                 | 7.2                 | 5                | 1.2                | 3.3                 | 22.79%                |
+| conv2     | 9%        | 38%           | 8                 | 6.8                 | 5                | 2.6                | 4.0                 | 11.19%                |
+| conv3     | 26%       | 35%           | 8                 | 6.5                 | 5                | 2.7                | 3.2                 | 10.17%                |
+| conv4     | 26%       | 37%           | 8                 | 6.6                 | 5                | 2.7                | 3.2                 | 10.72%                |
+| conv5     | 26%       | 37%           | 8                 | 6.7                 | 5                | 2.7                | 3.2                 | 10.81%                |
+| fc1       | 26%       | 9%            | 5                 | 4.0                 | 5                | 4.5                | 3.2                 | 2.34%                 |
+| fc2       | 26%       | 9%            | 5                 | 4.1                 | 5                | 4.6                | 3.2                 | 2.39%                 |
+| fc3       | 26%       | 25%           | 5                 | 4.4                 | 5                | 3.3                | 3.2                 | 6.09%                 |
+| **Total** | 58.3M     | 2.9% (34.4X)  | 6                 | 5.7                 | 5                | 3.2                | 3.22% (31X)         | 2.90% (34.4X)         |
+
+
+[//]: # (| Network | Quantization type | Top-1 Error | Top-5 Error |)
+
+[//]: # (|---------|-------------------|-------------|-------------|)
+
+[//]: # (| LeNet-5 | Forgy             | 61.27%      | 30.25%      |)
+
+[//]: # (| LeNet-5 | Density-based     |             |             |)
+
+[//]: # (| LeNet-5 | Linear            | -           | -           |)
+
+[//]: # (| AlexNet | Forgy             |             |             |)
+
+[//]: # (| AlexNet | Density-based     |             |             |)
+
+[//]: # (| AlexNet | Linear            | -           | -           |)
+
+[//]: # (| VGG-16  | Forgy             |             |             |)
+
+[//]: # (| VGG-16  | Density-based     |             |             |)
+
+[//]: # (| VGG-16  | Linear            | -           | -           |)
 
 ## Huffman encoding
-Work in progress
+Huffman Encoding is implemented in [compression.huffman_encoding](compression/huffman_encoding.py) model.
+
+This module computes the huffman tree for the passed vector and calculates the memory saving obtained by that encoding and the average number of bits used to encode every element of the vector.
+The encoding is not actually applied to the vector.
+
+Huffman Encoding is enabled by setting the parameter `huffman_encode` to True in `Quantization` callback.
 
 # Acknowledgments
 - [Pytorch](https://pytorch.org/docs/stable/nn.html#module-torch.nn.utils) for pruning library
