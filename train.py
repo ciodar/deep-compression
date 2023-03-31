@@ -39,7 +39,7 @@ import models as module_arch
 from parse_config import ConfigParser
 from trainer.lit_model import LitModel
 from trainer.trainer import get_trainer
-from utils import set_all_seeds
+from utils import set_all_seeds, load_compressed_checkpoint
 
 SEED = 42
 set_all_seeds(SEED)
@@ -56,7 +56,7 @@ def main(config):
     logger.info("Start training")
     if config.resume:
         checkpoint = torch.load(config.resume)
-        model.load_state_dict(checkpoint['state_dict'])
+        model = load_compressed_checkpoint(model,checkpoint)
     logger.info(model)
 
     trainer = get_trainer(config)

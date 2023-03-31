@@ -17,7 +17,7 @@ class IterativePruning(ModelPruning):
     def __init__(self, pruning_fn: Union[Callable, str], pruning_schedule: Dict,
                  amount: Union[int, float, List[int]] = None,
                  filter_layers: Optional[List[str]] = None, use_global_unstructured: bool = True,
-                 huffman_encode: bool = False,
+                 huffman_encode: bool = False, prune_on_fit_start: bool = False,
                  **kwargs):
         self._use_global_unstructured = use_global_unstructured
         # custom pruning function
@@ -33,6 +33,7 @@ class IterativePruning(ModelPruning):
         self._filter_layers = tuple(getattr(torch.nn, c) for c in self._filter_layers)
         self._amount = amount
         self._huffman_encode = huffman_encode
+        self._prune_on_fit_start = prune_on_fit_start
 
         if use_global_unstructured and isinstance(amount, list):
             raise MisconfigurationException(
@@ -64,6 +65,23 @@ class IterativePruning(ModelPruning):
             self.pruning_fn(module, name=name, amount=self._amount[i])
             if isinstance(module, LinearWithAdjustableDropout):
                 module.adjust_dropout_rate(name)
+
+    def on_fit_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        if self._prune_on_fit_start:
+            rank_zero_debug("`ModelPruning.on_train_epoch_end`. Applying pruning")
+            self._run_pruning(pl_module.current_epoch)
+
+            if self._check_epoch(pl_module.current_epoch):
+                tot_retained, tot_pruned = sparsity_stats(pl_module)
+                tensorboard = pl_module.logger.experiment
+                tensorboard.add_scalar("sparsity", (tot_retained / (tot_pruned + tot_retained)))
+                tensorboard.add_scalar("compression", ((tot_pruned + tot_retained) / tot_retained))
+
+    def on_fit_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+        tot_retained, tot_pruned = sparsity_stats(pl_module)
+        tensorboard = pl_module.logger.experiment
+        tensorboard.add_scalar("sparsity", (tot_retained / (tot_pruned + tot_retained)))
+        tensorboard.add_scalar("compression", ((tot_pruned + tot_retained) / tot_retained))
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: LightningModule) -> None:
         if self._prune_on_train_epoch_end:

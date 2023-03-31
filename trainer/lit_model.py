@@ -33,6 +33,17 @@ class LitModel(lit.LightningModule):
             self.log('val_' + met.__name__, met(logits, y), on_step=False, on_epoch=True, prog_bar=True)
         return loss
 
+    def test_step(self, batch, batch_idx):
+        # this is the test loop
+        x, y = batch
+        logits = self.model(x)
+        loss = self.criterion(logits, y)
+        self.log('test_loss', loss, on_step=False, on_epoch=True, prog_bar=True)
+        # compute metrics
+        for met in self.metric_ftns:
+            self.log('test_' + met.__name__, met(logits, y), on_step=False, on_epoch=True, prog_bar=True)
+        return loss
+
     def on_validation_epoch_end(self):
         super().on_validation_epoch_end()
         # log model parameters

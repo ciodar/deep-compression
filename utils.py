@@ -1,4 +1,6 @@
 import json
+import math
+import operator
 import os
 import random
 from collections import OrderedDict
@@ -9,6 +11,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+from pytorch_lightning import LightningModule
+from torch.nn.utils import prune
+
+import compression
 
 
 def set_all_seeds(seed):
@@ -129,16 +135,6 @@ def plot_weight_histograms(model):
 #             weight_dict['%s.weight' % name] = sparse_weight
 #             weight_dict['%s.bias' % name] = bias
 #     torch.save(weight_dict, save_path)
-#
-#
-# def load_sparse_weights(load_path):
-#     dict = torch.load(load_path)
-#     for name, param in dict.items():
-#         print(name)
-#         if sparse.issparse(param):
-#             param = param.todense()
-#         dict[name] = torch.from_numpy(param)
-#     return dict
 
 def read_json(fname):
     fname = Path(fname)
@@ -158,3 +154,31 @@ def make_paths_relative_to_root():
     """
     top_level = Path(__file__).parent
     chdir(top_level)
+
+def load_compressed_checkpoint(pl_model: LightningModule, checkpoint):
+    state_dict = checkpoint['state_dict']
+    pruned_parameters = [(m, mask) for m, mask in state_dict.items() if '_mask' in m]
+    quantized_parameters = [(m, int(math.log2(t.numel()))) for m, t in state_dict.items() if ('_centers' in m)]
+
+    parameters_to_prune, parameters_to_quantize = [], []
+
+    for pp, mask in pruned_parameters:
+        module_name, param = '.'.join(pp.split('.')[0:-1]), pp.split('.')[-1]
+        name = param.split('_mask')[0]
+        module = operator.attrgetter(module_name)(pl_model)
+        parameters_to_prune.append((module, param))
+        # Lightning cant handle this device mismatch
+        prune.custom_from_mask(module, name, mask.to(pl_model.device))
+
+    for qp, bits in quantized_parameters:
+        module_name, param = '.'.join(qp.split('.')[0:-1]), qp.split('.')[-1]
+        param = param.split('_centers')[0]
+        module = operator.attrgetter(module_name)(pl_model)
+        parameters_to_quantize.append((module, param))
+        # pick any quantization type.
+        # TODO: define identity quantization(e.g all zeros)
+        compression.linear_quantization(module, param, bits)
+
+    # finally try to load checkpoint
+    pl_model.load_state_dict(checkpoint['state_dict'])
+    return pl_model

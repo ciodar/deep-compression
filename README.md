@@ -2,7 +2,7 @@
 
 # Deep Compression
 
-This repository contains an unofficial [Pytorch Lightning](https://lightning.ai/pages/open-source/) 
+This repository is an unofficial [Pytorch Lightning](https://lightning.ai/pages/open-source/) 
 implementation of the paper "**Deep Compression**: Compressing Deep Neural Networks with pruning,trained quantization and Huffman coding" by Song Han et al. (https://arxiv.org/abs/1510.00149).
 It provides an implementation of the three core methods described in the paper:
 
@@ -10,14 +10,16 @@ It provides an implementation of the three core methods described in the paper:
 - Quantization
 - Huffman Encoding
 
-| Network                  | Top-1 Error | Compression Rate |
-|--------------------------|-------------|------------------|
-| LeNet-300-100 Ref        | 1.57%       | -                |
-| LeNet-300-100 Compressed | 1.57%       | **41X**          |
-| LeNet-5 Ref              | 0.7%        | -                |
-| LeNet-5 Compressed       | 0.8%        | **43X**          |
-| AlexNet Ref              | 22.94%      | -                |
-| AlexNet Compressed       | 17.5%       | **31X**          |
+These are the main results on the MNIST and [Imagenenette](https://github.com/fastai/imagenette) datasets
+
+| Network                  | Top-1 Error (Ours) | Top-1 Error (Han et al.) | Compression Rate (Ours) | Compression Rate (Han et al.) |
+|--------------------------|--------------------|--------------------------|-------------------------|-------------------------------|
+| LeNet-300-100 Ref        | 2.0%               | 1.64%                    | -                       | -                             |
+| LeNet-300-100 Compressed | 1.8%               | 1.58%                    | **48X**                 | 40X                           |
+| LeNet-5 Ref              | 0.83%              | 0.8%                     | -                       | -                             |
+| LeNet-5 Compressed       | 0.74%              | 0.74%                    | **46X**                 | 39X                           |
+| AlexNet Ref              | 22.83%             | -                        | -                       | -                             |
+| AlexNet Compressed       | 17.5%              | -                        | **36X**                 | 35X                           |
 
 This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** exam at University of Florence.
 
@@ -29,17 +31,19 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
   * [Requirements](#requirements)
   * [Project Structure](#project-structure)
   * [Usage](#usage)
+    * [Models](#models)
     * [Configuration file](#configuration-file)
     * [Training](#training)
     * [Testing](#testing)
     * [Sensitivity analysis](#sensitivity-analysis)
-  * [Models](#models)
   * [Pruning](#pruning)
-    * [MNIST](#mnist)
-    * [Imagenette](#imagenette)
   * [Quantization](#quantization)
   * [Huffman encoding](#huffman-encoding)
-* [Acknowledgments](#acknowledgments)
+  * [Results](#results)
+    * [MNIST](#mnist)
+    * [Imagenette](#imagenette)
+  * [References](#references)
+  * [Acknowledgments](#acknowledgments)
 <!-- TOC -->
 
 ## Requirements
@@ -111,6 +115,14 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
 
 ## Usage
 
+### Models
+[models](models) folder contains the implementation of the following models:
+
+- LeNet-300 from the original [LeNet paper](http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf)
+- LeNet-5, in a modified, larger version which follows the one in the [Deep Compression paper](https://arxiv.org/abs/1510.00149)
+- AlexNet, which follows the Caffe implementation available the author's [repository](https://github.com/songhan/Deep-Compression-AlexNet)
+- VGG-16 
+
 ### Configuration file
 All the experiments are handled by a configuration file in `.json` format:
 
@@ -152,7 +164,8 @@ All the experiments are handled by a configuration file in `.json` format:
         "topk_accuracy"
     ],
     "trainer": {
-        "max_epochs": 60,
+        "min_epochs": 10,
+        "max_epochs": 20,
         "save_dir": "runs/",
         "verbosity": 1,
         "monitor": "max val_accuracy",
@@ -166,18 +179,19 @@ All the experiments are handled by a configuration file in `.json` format:
             },
             "IterativePruning": {
                 "pruning_schedule": {
-                    "target_sparsity": 0.92,
+                    "target_sparsity": 0.9,
                     "start_epoch": 0,
-                    "prune_every": 5
+                    "prune_every": 2
                 },
                 "pruning_fn": "l1_threshold",
                 "parameter_names": ["weight"],
-                "amount": [0.5,0.7,0.5],
+                "amount": 0.6,
                 "use_global_unstructured": true,
+                "make_pruning_permanent": false,
                 "verbose": 2
             },
             "Quantization": {
-              "epoch": 40,
+              "epoch": 10,
               "quantization_fn": "density_quantization",
               "parameter_names": ["weight"],
               "filter_layers": ["Linear"],
@@ -213,17 +227,12 @@ $ python test.py -r path-to-checkpoint/checkpoint.ckpt
 $ python sensitivity.py -r path-to-checkpoint/checkpoint.ckpt
 ```
 
-## Models
-[models](models) folder contains the implementation of the following models:
 
-- LeNet-300 from the original LeNet [paper](http://vision.stanford.edu/cs598_spring07/papers/Lecun98.pdf)
-- LeNet-5, in a modified, larger version which follows the one in the Deep Compression [paper](https://arxiv.org/abs/1510.00149)
-- AlexNet, which follows the Caffe implementation available the author's [repository](https://github.com/songhan/Deep-Compression-AlexNet)
-- VGG-16 
 
 ## Pruning
 Pruning is implemented as a callback, called during training by Pytorch Lightning's [Trainer](https://lightning.ai/docs/pytorch/latest/common/trainer.html).
 The `IterativePruning` callback extends [ModelPruning](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.callbacks.ModelPruning.html#lightning.pytorch.callbacks.ModelPruning) callback with further control on the pruning schedule.
+It allows to set a target sparsity level, prune each layer with a different amount/threshold and perform Iterative pruning.
 
 - `pruning_fn`:  Function from torch.nn.utils.prune module or a PyTorch BasePruningMethod subclass. Can also be string e.g. “l1_unstructured”
 - `parameter_names`: List of parameter names to be pruned from the nn.Module. Can either be "weight" or "bias".
@@ -245,34 +254,16 @@ Performance of pruned models was evaluated on different datasets in different se
 - One-shot pruning with retraining: prune a trained model, then retrain the weights to compensate the accuracy loss occurred during pruning
 - Iterative pruning: iteratively prune and retrain the model multiple times
 
-### MNIST
-| Network                                    | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
-|--------------------------------------------|-------------|-------------|------------|------------------|
-| LeNet-300-100 Ref                          | 1.57%       | -           | 267K       | -                |
-| LeNet-300-100 One-Shot Pruning w/ retrain  | 1.60%       | -           | **22K**    | **12X**          |
-| LeNet-300-100 Iterative Pruning w/ retrain | 1.58%       | -           | **22K**    | **12X**          |
-| LeNet-5 Ref                                | 0.7%        | -           | 429K       | -                |
-| LeNet-5 One-Shot Pruning w/ retrain        | 0.7%        | -           | **36K**    | **12X**          |
-| LeNet-5 Iterative Pruning w/ retrain       | 0.7%        | -           | **36K**    | **12X**          |
-
-[//]: # (### CIFAR-100)
-
-[//]: # ()
-[//]: # (| Network        | Top-1 Error | Top-5 Error | Parameters | Compression Rate |)
-
-[//]: # (|----------------|-------------|-------------|------------|------------------|)
-
-[//]: # (| LeNet-5 Ref    | 61.17%      | 31.55%      | 266K       | -                |)
-
-[//]: # (| LeNet-5 Pruned | 61.89%      | 31.87%      | **50K**    | **11X**          |)
-
-### Imagenette
-| Network                             | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
-|-------------------------------------|-------------|-------------|------------|------------------|
-| AlexNet Ref                         | 22.94%      | -           | 58M        | -                |
-| AlexNet One-shot pruning w/ retrain | 19.13%      | -           | 6M         | **9X**           |
-| VGG16 Ref                           | -           | -           | 61M        | -                |
-| VGG16 Pruned                        |             | -           |            |                  |
+| Network                                   | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
+|-------------------------------------------|-------------|-------------|------------|------------------|
+| LeNet-300-100 Ref                         | 2.0%        | -           | 267K       | -                |
+| LeNet-300-100 one-shot Pruning w/ retrain | 1.83%       | -           | **22K**    | **12X**          |
+| LeNet-5 Ref                               | 0.83%       | -           | 429K       | -                |
+| LeNet-5 one-shot Pruning w/ retrain       | 0.69%       | -           | **36K**    | **12X**          |
+| AlexNet Ref                               | 22.94%      | -           | 58M        | -                |
+| AlexNet one-shot pruning w/ retrain       | 19.13%      | -           | 6M         | **9X**           |
+| VGG16 Ref                                 | -           | -           | 61M        | -                |
+| VGG16 Pruned                              |             | -           |            |                  |
 
 ## Quantization
 Quantization is implemented with `Quantizer`, a custom callback called by Pytorch Lightning's [Trainer](https://lightning.ai/docs/pytorch/latest/common/trainer.html).
@@ -296,67 +287,6 @@ The callback calls the quantization function for each layer and accepts the foll
 - `filter_layers`: List of strings, filters pruning only on layers of a specific class ("Linear","Conv2d" or both.)
 - `bits`: an int indicating the number of bits used for quantization. The number of codebook weights will be 2**bits.
 
-### MNIST
-
-#### LeNet-300
-
-| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
-|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
-| fc1       | 235K      | 8%            | 6                 | 5.0                 | 5                | 3.3                | 3.3                 | 2.21%                 |
-| fc2       | 30K       | 9%            | 6                 | 5.4                 | 5                | 4.0                | 4.0                 | 2.91%                 |
-| fc3       | 1K        | 26%           | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
-| **Total** | 266K      | 26%           | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
-
-#### LeNet-5
-
-| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
-|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
-| conv1     | 0.5K      | 66%           | 6                 | 5.0                 | 5                | 3.3                | 3.3                 | 2.21%                 |
-| conv2     | 25K       | 12%           | 6                 | 5.4                 | 5                | 4.0                | 4.0                 | 2.91%                 |
-| fc1       | 400K      | 92%           | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
-| fc2       | 3K        | 81%           | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
-| **Total** | 429K      | 8% (12X)      | 6                 | 5.7                 | 5                | 3.2                | 3.2                 | 13.46%                |
-
-
-### Imagenette
-
-#### AlexNet
-
-| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
-|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
-| conv1     | %         | 84%           | 8                 | 7.2                 | 5                | 1.2                | 3.3                 | 22.79%                |
-| conv2     | 9%        | 38%           | 8                 | 6.8                 | 5                | 2.6                | 4.0                 | 11.19%                |
-| conv3     | 26%       | 35%           | 8                 | 6.5                 | 5                | 2.7                | 3.2                 | 10.17%                |
-| conv4     | 26%       | 37%           | 8                 | 6.6                 | 5                | 2.7                | 3.2                 | 10.72%                |
-| conv5     | 26%       | 37%           | 8                 | 6.7                 | 5                | 2.7                | 3.2                 | 10.81%                |
-| fc1       | 26%       | 9%            | 5                 | 4.0                 | 5                | 4.5                | 3.2                 | 2.34%                 |
-| fc2       | 26%       | 9%            | 5                 | 4.1                 | 5                | 4.6                | 3.2                 | 2.39%                 |
-| fc3       | 26%       | 25%           | 5                 | 4.4                 | 5                | 3.3                | 3.2                 | 6.09%                 |
-| **Total** | 58.3M     | 2.9% (34.4X)  | 6                 | 5.7                 | 5                | 3.2                | 3.22% (31X)         | 2.90% (34.4X)         |
-
-
-[//]: # (| Network | Quantization type | Top-1 Error | Top-5 Error |)
-
-[//]: # (|---------|-------------------|-------------|-------------|)
-
-[//]: # (| LeNet-5 | Forgy             | 61.27%      | 30.25%      |)
-
-[//]: # (| LeNet-5 | Density-based     |             |             |)
-
-[//]: # (| LeNet-5 | Linear            | -           | -           |)
-
-[//]: # (| AlexNet | Forgy             |             |             |)
-
-[//]: # (| AlexNet | Density-based     |             |             |)
-
-[//]: # (| AlexNet | Linear            | -           | -           |)
-
-[//]: # (| VGG-16  | Forgy             |             |             |)
-
-[//]: # (| VGG-16  | Density-based     |             |             |)
-
-[//]: # (| VGG-16  | Linear            | -           | -           |)
-
 ## Huffman encoding
 Huffman Encoding is implemented in [compression.huffman_encoding](compression/huffman_encoding.py) model.
 
@@ -365,7 +295,55 @@ The encoding is not actually applied to the vector.
 
 Huffman Encoding is enabled by setting the parameter `huffman_encode` to True in `Quantization` callback.
 
-# Acknowledgments
+## Results
+
+Here's a summary of the reached compression of each model, after pruning, quantization and Huffman Encoding. 
+The experiments are available on Tensorboard.dev.
+
+### MNIST
+
+- [LeNet-300-100](https://tensorboard.dev/experiment/Z7XtG6YXRdOlBaX9Ramt3g/)
+
+| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
+|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
+| fc1       | 235K      | 8%            | 6                 | 5.1                 | 5                | 2.5                | 2.53%               | 1.92%                 |
+| fc2       | 30K       | 9%            | 6                 | 5.4                 | 5                | 3.6                | 3.03%               | 2.71%                 |
+| fc3       | 1K        | 26%           | 6                 | 5.8                 | 5                | 3.1                | 14.52%              | 13.59%                |
+| **Total** | 266K      | 8% (12X)      | 6                 |                     | 5                |                    | 2.63% (38.0X)       | 2.05% (48.7X)         |
+
+- [LeNet-5](https://tensorboard.dev/experiment/RMyp5qxRRSyZP0zn4Oe7wA/)
+
+| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
+|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
+| conv1     | 0.5K      | 82%           | 6                 | 7.9                 | 5                | 1.2                | 92.47%              | 74.54%                |
+| conv2     | 25K       | 19%           | 6                 | 7.5                 | 5                | 3.0                | 21.10%              | 7.09%                 |
+| fc1       | 400K      | 7%            | 6                 | 4.2                 | 5                | 3.6                | 1.97%               | 1.66%                 |
+| fc2       | 3K        | 73%           | 6                 | 4.4                 | 5                | 1.4                | 21.58%              | 14.08%                |
+| **Total** | 429K      | 8% (12X)      | 6                 |                     | 5                |                    | 3.34% (39X)         | 2.15% (46X)           |
+
+
+### Imagenette
+
+- [AlexNet](#)
+
+| Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
+|-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
+| conv1     | 35K       | 84%           | 8                 | 7.2                 | 5                | 1.2                | 3.3                 | 23.02%                |
+| conv2     | 307K      | 38%           | 8                 | 6.8                 | 5                | 2.6                | 4.0                 | 11.17%                |
+| conv3     | 885K      | 35%           | 8                 | 6.5                 | 5                | 2.7                | 3.2                 | 9.99%                 |
+| conv4     | 663K      | 37%           | 8                 | 6.6                 | 5                | 2.7                | 3.2                 | 10.52%                |
+| conv5     | 442K      | 37%           | 8                 | 6.7                 | 5                | 2.7                | 3.2                 | 10.53%                |
+| fc1       | 38M       | 9%            | 5                 | 4.0                 | 5                | 4.5                | 3.2                 | 2.22%                 |
+| fc2       | 17M       | 9%            | 5                 | 4.1                 | 5                | 4.6                | 3.2                 | 2.21%                 |
+| fc3       | 4M        | 25%           | 5                 | 4.4                 | 5                | 3.3                | 3.2                 | 6.66%                 |
+| **Total** | 58M       | 11% (34.4X)   | 5.4               | 5.7                 | 5                | 3.2                | 3.22% (31X)         | 2.76% (36X)           |
+
+## References
+[[1]](https://arxiv.org/pdf/1510.00149v5.pdf) Han, Song, Huizi Mao, and William J. Dally. "Deep compression: Compressing deep neural networks with pruning, trained quantization and huffman coding." arXiv preprint arXiv:1510.00149 (2015)
+
+[[2]](https://arxiv.org/pdf/1506.02626v3.pdf) Han, Song, et al. "Learning both weights and connections for efficient neural network." Advances in neural information processing systems 28 (2015)
+
+## Acknowledgments
 - [Pytorch](https://pytorch.org/docs/stable/nn.html#module-torch.nn.utils) for pruning library
 - [Distiller](https://github.com/IntelLabs/distiller) for sensitivity analysis
-- [pytorch-template](https://github.com/victoresque/pytorch-template) for project structure
+- [pytorch-template](https://github.com/victoresque/pytorch-template) for project structure and experiment logging
