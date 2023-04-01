@@ -324,7 +324,7 @@ The experiments are available on Tensorboard.dev.
 
 ### Imagenette
 
-- [AlexNet](#)
+- [AlexNet](https://tensorboard.dev/experiment/2xJrx1AYRAK4WiobyudX2Q/)
 
 | Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
 |-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|

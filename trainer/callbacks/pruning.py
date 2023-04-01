@@ -73,15 +73,17 @@ class IterativePruning(ModelPruning):
 
             if self._check_epoch(pl_module.current_epoch):
                 tot_retained, tot_pruned = sparsity_stats(pl_module)
-                tensorboard = pl_module.logger.experiment
-                tensorboard.add_scalar("sparsity", (tot_retained / (tot_pruned + tot_retained)))
-                tensorboard.add_scalar("compression", ((tot_pruned + tot_retained) / tot_retained))
+                if pl_module.logger:
+                    tensorboard = pl_module.logger.experiment
+                    tensorboard.add_scalar("sparsity", (tot_retained / (tot_pruned + tot_retained)))
+                    tensorboard.add_scalar("compression", ((tot_pruned + tot_retained) / tot_retained))
 
     def on_fit_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
         tot_retained, tot_pruned = sparsity_stats(pl_module)
-        tensorboard = pl_module.logger.experiment
-        tensorboard.add_scalar("sparsity", (tot_retained / (tot_pruned + tot_retained)))
-        tensorboard.add_scalar("compression", ((tot_pruned + tot_retained) / tot_retained))
+        if pl_module.logger:
+            tensorboard = pl_module.logger.experiment
+            tensorboard.add_scalar("sparsity", (tot_retained / (tot_pruned + tot_retained)))
+            tensorboard.add_scalar("compression", ((tot_pruned + tot_retained) / tot_retained))
 
     def on_train_epoch_end(self, trainer: "pl.Trainer", pl_module: LightningModule) -> None:
         if self._prune_on_train_epoch_end:
