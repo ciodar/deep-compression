@@ -67,20 +67,20 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
   ├── train.py - main script to start training
   ├── test.py - evaluation of trained model 
   │
-  ├── compression/ - directory containing all the compression logic
-  │   ├── pruning.py - implementation of ThresholdPruning and a calculation of 
-  │   ├── quantization.py - DataLoader for MNIST
-  │   └── huffman_encoding.py - DataLoader for CIFAR 100
+  ├── compression/ - directory containing all the Deep Compression logic
+  │   ├── pruning.py - implements ThresholdPruning and utilities for sparsity calculation
+  │   ├── quantization.py - implements all the weight sharing logic, utilities for compression calculation
+  │   └── huffman_encoding.py - implements huffman encoding
   │
   ├── configs/ - directory of saved model configurations for various datasets and models
-  ├── config.json - default working configuration file for training
+  ├── config.json - a configuration file for your current experiment. 
   ├── parse_config.py - handles config file and cli options
   │
   ├── data.py - anything about data loading goes here
   │   ├── BaseDataLoader - Abstract Base Class for Dataloader
   │   ├── MnistDataLoader - DataLoader for MNIST
   │   ├── CIFAR100DataLoader - DataLoader for CIFAR 100
-  │   └── ImagenetteDataLoader - DataLoader for Imagenette
+  │   └── ImagenetDataLoader - DataLoader for Imagenet-like datasets
   │
   ├── data/ - directory for storing input data
   │
@@ -99,14 +99,14 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
   │
   ├── trainer/ - module containing code for training and evaluating models
   │   ├── callbacks/ - module containing custom callbacks for Lightning Trainer
-  │   │   ├── IterativePruning - Custom callback extending ModulePruning allowing 
-  │   │   └── Quantization - Custom callback defining quantization process
+  │   │   ├── IterativePruning - Custom callback extending ModulePruning allowing finegraned control on the pruning process
+  │   │   └── Quantization - Custom callback defining quantization process. Also handles huffman encoding calculation.
   │   │
   │   ├── lit_model.py - Lightning wrapper for model training
   │   ├── metrics.py - code to define metrics
   │   └── trainer.py - code to configure a Lightning Trainer from json configuration 
   │
-  ├── logger/ - module for tensorboard visualization and logging
+  ├── logger/ - module for additional console logging (Tensorboard is handled by Lightning)
   │   ├── logger.py
   │   └── logger_config.json
   │  
@@ -192,11 +192,12 @@ All the experiments are handled by a configuration file in `.json` format:
             },
             "Quantization": {
               "epoch": 10,
-              "quantization_fn": "density_quantization",
+              "quantization_fn": "linear_quantization",
               "parameter_names": ["weight"],
               "filter_layers": ["Linear"],
               "bits": 6,
-              "verbose": 2
+              "verbose": 2,
+              "huffman_encode": true
             }
         }
     }
@@ -211,7 +212,9 @@ $ python train.py -c config.json
 ```
 
 To resume a training, use the command -r followed by the path to a Pytorch Lightning checkpoint. 
+
 In the same directory it should also be placed the JSON configuration file of the trained model.
+This is useful if you want to perform compression step by step, changing the callbacks every time.
 ```sh
 $ python train.py -r path-to-checkpoint/checkpoint.ckpt
 ```
