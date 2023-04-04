@@ -122,8 +122,8 @@ class Cifar100DataLoader(BaseDataLoader):
 
 class ImagenetDataLoader(BaseDataLoader):
     def __init__(self, batch_size, data_dir, shuffle=True, validation_split=0.0,
-                 num_workers=1):
-        self.data_dir = data_dir
+                 num_workers=1, training=True):
+        self.data_dir = data_dir + '/train' if training else data_dir + '/val'
 
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
@@ -157,7 +157,7 @@ class ImagenetDataLoader(BaseDataLoader):
 
     def _split_dataset(self, dataset, split):
         if split == 0.0:
-            return None, None
+            return MyDataset(dataset, self.transform['val']), None
 
         idx_full = np.arange(self.n_samples)
 

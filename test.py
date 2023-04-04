@@ -19,7 +19,10 @@ _MODULE_CONTAINERS = (LightningModule, nn.Sequential, nn.ModuleList, nn.ModuleDi
 def main(config):
     logger = config.get_logger()
 
+    # Override settings
     config['data_loader']['args']['training'] = False
+    config['data_loader']['args']['validation_split'] = 0.0
+    config['data_loader']['args']['shuffle'] = False
 
     test_data_loader = config.init_obj('data_loader', module_data)
     print(len(test_data_loader))
