@@ -290,6 +290,13 @@ The callback calls the quantization function for each layer and accepts the foll
 - `filter_layers`: List of strings, filters pruning only on layers of a specific class ("Linear","Conv2d" or both.)
 - `bits`: an int indicating the number of bits used for quantization. The number of codebook weights will be 2**bits.
 
+| #CONV bits / #FC bits | Top-1 Error | Top-1 Error increase | Compression rate |
+|-----------------------|-------------|----------------------|------------------|
+| 32 bits / 32 bits     | 2.627%      | -                    | -                |
+| 8 bits / 5 bits       | 3.87%       | 1.2%                 | 41X              |
+| 8 bits / 4 bits       | 4.066%      | 1.4%                 | 44X              |
+| 4 bits / 2 bits       | 3.45%       | 0.8%                 | 61X              |
+
 ## Huffman encoding
 Huffman Encoding is implemented in [compression.huffman_encoding](compression/huffman_encoding.py) model.
 
@@ -318,11 +325,11 @@ The experiments are available on Tensorboard.dev.
 
 | Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
 |-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
-| conv1     | 0.5K      | 82%           | 6                 | 7.9                 | 5                | 1.2                | 92.47%              | 74.54%                |
-| conv2     | 25K       | 19%           | 6                 | 7.5                 | 5                | 3.0                | 21.10%              | 7.09%                 |
-| fc1       | 400K      | 7%            | 6                 | 4.2                 | 5                | 3.6                | 1.97%               | 1.66%                 |
-| fc2       | 3K        | 73%           | 6                 | 4.4                 | 5                | 1.4                | 21.58%              | 14.08%                |
-| **Total** | 429K      | 8% (12X)      | 6                 |                     | 5                |                    | 3.34% (39X)         | 2.15% (46X)           |
+| conv1     | 0.5K      | 82%           | 8                 | 7.9                 | 5                | 1.2                | 92.47%              | 74.54%                |
+| conv2     | 25K       | 19%           | 8                 | 7.5                 | 5                | 3.0                | 21.10%              | 7.09%                 |
+| fc1       | 400K      | 7%            | 5                 | 4.2                 | 5                | 3.6                | 1.97%               | 1.66%                 |
+| fc2       | 3K        | 73%           | 5                 | 4.4                 | 5                | 1.4                | 21.58%              | 14.08%                |
+| **Total** | 429K      | 8% (12X)      |                   |                     | 5                |                    | 3.34% (39X)         | 2.15% (46X)           |
 
 
 ### Imagenette
