@@ -123,7 +123,10 @@ class Cifar100DataLoader(BaseDataLoader):
 class ImagenetDataLoader(BaseDataLoader):
     def __init__(self, batch_size, data_dir, shuffle=True, validation_split=0.0,
                  num_workers=1, training=True):
-        self.data_dir = data_dir + '/train' if training else data_dir + '/val'
+        if training:
+            self.data_dir = os.path.join(data_dir, 'train')
+        else:
+            self.data_dir = os.path.join(data_dir, 'val')
 
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])

@@ -12,7 +12,7 @@
         "type": "ImagenetDataLoader",
         "args": {
             "data_dir": "data/imagenette2",
-            "batch_size": 128,
+            "batch_size": 32,
             "shuffle": true,
             "validation_split": 0.1,
             "num_workers": 6
@@ -24,7 +24,7 @@
             "lr": 1e-2,
             "momentum": 0.9,
             "weight_decay": 5e-4,
-            "nesterov": true
+            "nesterov": false
         }
     },
     "loss": "cross_entropy",
@@ -40,7 +40,7 @@
         }
     },
     "trainer": {
-        "epochs": -1,
+        "min_epochs": 1,
         "save_dir": "runs/",
         "verbosity": 1,
         "monitor": "max val_accuracy",
@@ -49,6 +49,7 @@
             "ModelCheckpoint":
             {
                 "save_top_k": 1,
+                "every_n_epochs": 1,
                 "monitor": "val_accuracy",
                 "mode": "max"
             },

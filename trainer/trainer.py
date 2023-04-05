@@ -11,7 +11,7 @@ def get_trainer(config):
     cfg_trainer = config['trainer']
 
     if torch.cuda.is_available():
-        accelerator, devices = "gpu", config['n_gpu']
+        accelerator, devices = "auto", config['n_gpu']
     else:
         accelerator, devices = "auto", None
 

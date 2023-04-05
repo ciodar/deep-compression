@@ -35,7 +35,7 @@ def main(config):
     logger.info(model)
 
     trainer = Trainer(logger=None, accelerator="gpu", deterministic=True, enable_progress_bar=False,
-                      enable_model_summary=False, enable_checkpointing=False)
+                      enable_model_summary=False, enable_checkpointing=False, devices=1, num_nodes=1)
     log = trainer.test(model, test_data_loader)
     print(log)
 

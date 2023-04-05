@@ -18,8 +18,8 @@ These are the main results on the MNIST and [Imagenenette](https://github.com/fa
 | LeNet-300-100 Compressed | 1.8%               | 1.58%                    | **48X**                 | 40X                           |
 | LeNet-5 Ref              | 0.83%              | 0.8%                     | -                       | -                             |
 | LeNet-5 Compressed       | 0.74%              | 0.74%                    | **46X**                 | 39X                           |
-| AlexNet Ref              | 22.83%             | -                        | -                       | -                             |
-| AlexNet Compressed       | 17.5%              | -                        | **36X**                 | 35X                           |
+| AlexNet Ref              | 9.11%              | -                        | -                       | -                             |
+| AlexNet Compressed       | 3.87%              | -                        | **41X**                 | 35X                           |
 
 This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** exam at University of Florence.
 
@@ -260,11 +260,11 @@ Performance of pruned models was evaluated on different datasets in different se
 | Network                                   | Top-1 Error | Top-5 Error | Parameters | Compression Rate |
 |-------------------------------------------|-------------|-------------|------------|------------------|
 | LeNet-300-100 Ref                         | 2.0%        | -           | 267K       | -                |
-| LeNet-300-100 one-shot Pruning w/ retrain | 1.83%       | -           | **22K**    | **12X**          |
+| LeNet-300-100 one-shot pruning w/ retrain | 1.83%       | -           | **22K**    | **12X**          |
 | LeNet-5 Ref                               | 0.83%       | -           | 429K       | -                |
-| LeNet-5 one-shot Pruning w/ retrain       | 0.69%       | -           | **36K**    | **12X**          |
-| AlexNet Ref                               | 22.94%      | -           | 58M        | -                |
-| AlexNet one-shot pruning w/ retrain       | 19.13%      | -           | 6M         | **9X**           |
+| LeNet-5 one-shot pruning w/ retrain       | 0.69%       | -           | **36K**    | **12X**          |
+| AlexNet Ref                               | 9.11%       | -           | 57M        | -                |
+| AlexNet one-shot pruning w/ retrain       | 2.627%      | -           | 6M         | **10X**          |
 | VGG16 Ref                                 | -           | -           | 61M        | -                |
 | VGG16 Pruned                              |             | -           |            |                  |
 
@@ -331,15 +331,15 @@ The experiments are available on Tensorboard.dev.
 
 | Layer     | # Weights | Weights % (P) | Weight bits (P+Q) | Weight bits (P+Q+H) | Index bits (P+Q) | Index bits (P+Q+H) | Compress rate (P+Q) | Compress rate (P+Q+H) |
 |-----------|-----------|---------------|-------------------|---------------------|------------------|--------------------|---------------------|-----------------------|
-| conv1     | 35K       | 84%           | 8                 | 7.2                 | 5                | 1.2                | 3.3                 | 23.02%                |
-| conv2     | 307K      | 38%           | 8                 | 6.8                 | 5                | 2.6                | 4.0                 | 11.17%                |
-| conv3     | 885K      | 35%           | 8                 | 6.5                 | 5                | 2.7                | 3.2                 | 9.99%                 |
-| conv4     | 663K      | 37%           | 8                 | 6.6                 | 5                | 2.7                | 3.2                 | 10.52%                |
-| conv5     | 442K      | 37%           | 8                 | 6.7                 | 5                | 2.7                | 3.2                 | 10.53%                |
-| fc1       | 38M       | 9%            | 5                 | 4.0                 | 5                | 4.5                | 3.2                 | 2.22%                 |
-| fc2       | 17M       | 9%            | 5                 | 4.1                 | 5                | 4.6                | 3.2                 | 2.21%                 |
-| fc3       | 4M        | 25%           | 5                 | 4.4                 | 5                | 3.3                | 3.2                 | 6.66%                 |
-| **Total** | 58M       | 11% (34.4X)   | 5.4               | 5.7                 | 5                | 3.2                | 3.22% (31X)         | 2.76% (36X)           |
+| conv1     | 35K       | 84%           | 8                 | 7.2                 | 5                | 1.2                | 3.3                 | 23.61%                |
+| conv2     | 307K      | 38%           | 8                 | 6.8                 | 5                | 2.6                | 4.0                 | 11.20%                |
+| conv3     | 885K      | 35%           | 8                 | 6.5                 | 5                | 2.7                | 3.2                 | 10.13%                |
+| conv4     | 663K      | 37%           | 8                 | 6.6                 | 5                | 2.7                | 3.2                 | 10.96%                |
+| conv5     | 442K      | 37%           | 8                 | 6.7                 | 5                | 2.7                | 3.2                 | 11.06%                |
+| fc1       | 38M       | 9%            | 5                 | 4.0                 | 5                | 4.5                | 3.2                 | 2.07%                 |
+| fc2       | 17M       | 9%            | 5                 | 4.1                 | 5                | 4.6                | 3.2                 | 1.99%                 |
+| fc3       | 4M        | 25%           | 5                 | 4.4                 | 5                | 3.3                | 3.2                 | 5.95%                 |
+| **Total** | 58M       | 11% (10X)     | 5.4               |                     | 5                |                    | 3.22% (31X)         | 2.43% (41X)           |
 
 ## References
 [[1]](https://arxiv.org/pdf/1510.00149v5.pdf) Han, Song, Huizi Mao, and William J. Dally. "Deep compression: Compressing deep neural networks with pruning, trained quantization and huffman coding." arXiv preprint arXiv:1510.00149 (2015)

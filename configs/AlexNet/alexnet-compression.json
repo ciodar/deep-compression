@@ -57,7 +57,64 @@
                 "mode": "max",
                 "patience": 5,
                 "min_delta": 0.00
-            }
+            },
+            "IterativePruning": [
+                {
+                    "pruning_schedule": {
+                        "epochs": [
+                            0
+                        ]
+                    },
+                    "pruning_fn": "l1_unstructured",
+                    "parameter_names": [
+                        "weight"
+                    ],
+                    "filter_layers": [
+                        "Linear",
+                        "Conv2d"
+                    ],
+                    "amount": [
+                        0.16,
+                        0.62,
+                        0.65,
+                        0.63,
+                        0.63,
+                        0.91,
+                        0.91,
+                        0.75
+                    ],
+                    "use_global_unstructured": false,
+                    "verbose": 2
+                }
+            ],
+            "Quantization": [
+                {
+                    "epoch": 8,
+                    "quantization_fn": "linear_quantization",
+                    "parameter_names": [
+                        "weight"
+                    ],
+                    "filter_layers": [
+                        "Linear"
+                    ],
+                    "bits": 5,
+                    "verbose": 2,
+                    "huffman_encode": true
+                },
+                {
+                    "epoch": 8,
+                    "quantization_fn": "linear_quantization",
+                    "parameter_names": [
+                        "weight"
+                    ],
+                    "filter_layers": [
+                        "Conv2d"
+                    ],
+                    "bits": 8,
+                    "verbose": 2,
+                    "huffman_encode": true
+                }
+            ]
         }
     }
 }
