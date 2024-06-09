@@ -115,6 +115,13 @@ This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** 
 
 ## Usage
 
+### Data
+The data is stored by default in the `data/` directory. The data loading logic is implemented in the `data.py` file and can be easily extended to new datasets. 
+
+MNIST dataset is available in the `torchvision` package and can be downloaded automatically by Pytorch.
+The ImageNette dataset is available at [Imagenenette](https://github.com/fastai/imagenette) and needs to be downloaded and extracted in the `data/` directory. 
+
+
 ### Models
 [models](models) folder contains the implementation of the following models:
 
@@ -229,8 +236,6 @@ $ python test.py -r path-to-checkpoint/checkpoint.ckpt
 ```sh
 $ python sensitivity.py -r path-to-checkpoint/checkpoint.ckpt
 ```
-
-
 
 ## Pruning
 Pruning is implemented as a callback, called during training by Pytorch Lightning's [Trainer](https://lightning.ai/docs/pytorch/latest/common/trainer.html).

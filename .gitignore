@@ -10,6 +10,6 @@ config.json
 .vscode/
 /.idea/
 __MACOSX/
-
+__pycache__
 
 
