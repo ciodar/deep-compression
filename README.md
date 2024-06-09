@@ -21,7 +21,7 @@ These are the main results on the MNIST and [Imagenenette](https://github.com/fa
 | AlexNet Ref              | 9.11%              | -                        | -                       | -                             |
 | AlexNet Compressed       | 3.87%              | -                        | **41X**                 | 35X                           |
 
-This project was implemented by **Dario Cioni** (7073911) for **Deep Learning** exam at University of Florence.
+This project was implemented for **Deep Learning** exam at University of Florence.
 
 ## Table of contents
 
@@ -352,6 +352,12 @@ The experiments are available on Tensorboard.dev.
 | fc2       | 17M       | 9%            | 5                 | 4.1                 | 5                | 4.6                | 2.53%               | 1.99%                 |
 | fc3       | 4M        | 25%           | 5                 | 4.4                 | 5                | 3.3                | 7.11%               | 5.95%                 |
 | **Total** | 58M       | 11% (10X)     | 5.4               |                     | 5                |                    | 3.03%  (32X)        | 2.43% (41X)           |
+
+## TODOs
+- [ ] Switch to PyTorch Lightning console commands
+- [ ] Switch to YAML configuration
+- [ ] Better log integration w/ Tensorboard & WandB
+- [ ] Compressed checkpoints saving
 
 ## References
 [[1]](https://arxiv.org/pdf/1510.00149v5.pdf) Han, Song, Huizi Mao, and William J. Dally. "Deep compression: Compressing deep neural networks with pruning, trained quantization and huffman coding." arXiv preprint arXiv:1510.00149 (2015)
