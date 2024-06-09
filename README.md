@@ -2,8 +2,10 @@
 
 # Deep Compression
 
+[Original Paper](https://arxiv.org/abs/1510.00149), [My slides](https://drive.google.com/file/d/1PgbEiVICWGyU-r3I94mqTNf4wtCbIM79/view?usp=sharing)
+
 This repository is an unofficial [Pytorch Lightning](https://lightning.ai/pages/open-source/) 
-implementation of the paper "**Deep Compression**: Compressing Deep Neural Networks with pruning,trained quantization and Huffman coding" by Song Han et al. (https://arxiv.org/abs/1510.00149).
+implementation of the paper "**Deep Compression**: Compressing Deep Neural Networks with pruning,trained quantization and Huffman coding" by Song Han Huizi Mao and William J. Dally, 2015.
 It provides an implementation of the three core methods described in the paper:
 
 - Pruning
