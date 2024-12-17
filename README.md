@@ -368,5 +368,4 @@ The experiments are available on Tensorboard.dev.
 
 ## Acknowledgments
 - [Pytorch](https://pytorch.org/docs/stable/nn.html#module-torch.nn.utils) for pruning library
-- [Distiller](https://github.com/IntelLabs/distiller) for sensitivity analysis
 - [pytorch-template](https://github.com/victoresque/pytorch-template) for project structure and experiment logging
